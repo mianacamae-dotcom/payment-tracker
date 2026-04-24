@@ -164,8 +164,6 @@ tr:hover td{background:#f8f8f6;}
           <button onclick="exportCSV('all')">Export all payments</button>
         </div>
       </div>
-      <button class="btn" onclick="document.getElementById('excel-import-input').click()">Import Excel</button>
-      <input type="file" id="excel-import-input" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleExcelImport(this)">
       <button class="btn primary" onclick="openModal()">+ Add Payment</button>
     </div>
   </div>
@@ -630,7 +628,11 @@ function renderCurrent() {
   renderNav();
   const src = srcPayments();
   renderMetricsFor(src);
-  if(drillKey) return;
+  if(drillKey) {
+    if(activeView==='weeks'){const g=buildWeekGroups(src)[drillKey];if(g){document.getElementById('main').innerHTML='';renderPaymentTable(g.payments);renderSupplierBreakdown(g.payments,'Supplier totals this week');}}
+    else if(activeView==='months'){const g=buildMonthGroups(src)[drillKey];if(g){document.getElementById('main').innerHTML='';renderPaymentTable(g.payments);renderSupplierBreakdown(g.payments,'Supplier totals this month');}}
+    return;
+  }
   if(activeView==='weeks') renderWeeks();
   else if(activeView==='months') renderMonths();
   else if(activeView==='suppliers') renderSuppliers();
@@ -988,7 +990,7 @@ Rules:
     document.getElementById('import-confirm-btn').style.display = 'inline-block';
 
   } catch(err) {
-    document.getElementById('import-progress').textContent = 'Could not read file. Please try again.';
+    document.getElementById('import-progress').style.display='block'; document.getElementById('import-progress').textContent = 'Could not read file. Please try again.';
     console.error(err);
   }
 }
