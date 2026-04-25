@@ -757,7 +757,7 @@ async function confirmImport(){
       company:p.company||'Vonston',invoice:p.invoice||('IMP-'+Date.now()),
       supplier:p.supplier||'—',amount:parseFloat(p.amount)||0,
       issue_date:p.issue_date||null,due_date:p.due_date||ds(today),
-      status:p.status||'pending',notes:'',invoice_file_name:'',invoice_file_url:''
+      status:p.status||'pending',notes:'',invoice_file_name:''
     };
     const{error}=await db.from('payments').insert(row);
     if(error)fail++;else ok++;
