@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -158,6 +159,7 @@ tr:hover td{background:#f9f9f7;}
   <div class="view-tabs">
     <button class="view-tab active" onclick="setView('weeks')">By week</button>
     <button class="view-tab" onclick="setView('months')">By month</button>
+    <button class="view-tab" onclick="setView('years')">By year</button>
     <button class="view-tab" onclick="setView('suppliers')">By supplier</button>
     <button class="view-tab" onclick="setView('all')">All payments</button>
   </div>
@@ -264,7 +266,8 @@ async function loadPayments(){
     supplier:p.supplier||'',amount:parseFloat(p.amount)||0,
     issueDate:p.issue_date||'',due:p.due_date||'',
     status:p.status||'pending',notes:p.notes||'',
-    fileName:p.invoice_file_name||''
+    fileName:p.invoice_file_name||'',
+    invoiceLink:p.invoice_url||''
   }));
   buildWkOpts();renderNav();renderCurrent();
 }
@@ -274,7 +277,8 @@ async function dbSave(p,id){
     company:p.company,invoice:p.invoice,supplier:p.supplier,
     amount:p.amount,issue_date:p.issueDate||null,
     due_date:p.due,status:p.status,notes:p.notes,
-    invoice_file_name:p.fileName||''
+    invoice_file_name:p.fileName||'',
+    invoice_url:p.invoiceLink||null
   };
   if(id){const{error}=await db.from('payments').update(row).eq('id',id);return!error;}
   else{const{error}=await db.from('payments').insert(row);return!error;}
@@ -332,6 +336,37 @@ function mGroups(list){
   return g;
 }
 
+function yGroups(list){
+  const g={};
+  list.forEach(p=>{if(!p.due)return;const k=p.due.substring(0,4);if(!g[k])g[k]={payments:[]};g[k].payments.push(p);});
+  return g;
+}
+
+function renderYears(list){
+  const g=yGroups(list);
+  const keys=Object.keys(g).sort((a,b)=>b.localeCompare(a));
+  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
+  const curY=String(today.getFullYear());
+  document.getElementById('main').innerHTML=keys.map(k=>{
+    const{payments:ps}=g[k];
+    const total=ps.reduce((s,p)=>s+p.amount,0);
+    const paid=ps.filter(p=>p.status==='paid').length;
+    const pend=ps.filter(p=>p.status==='pending').length;
+    const over=ps.filter(p=>p.status==='overdue').length;
+    const pc=k<curY?'past':k===curY?'now':'future';
+    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillYear(\''+k+'\')">' +
+      '<span class="wpill '+pc+'">'+k+(pc==='now'?' ★':'')+'</span>'+
+      '<div class="wlabel" style="flex:1;"></div>'+
+      '<div class="wcounts">'+
+      (paid?'<span class="wc paid">'+paid+' paid</span>':'')+
+      (pend?'<span class="wc pending">'+pend+' pending</span>':'')+
+      (over?'<span class="wc overdue">'+over+' overdue</span>':'')+
+      '</div>'+
+      '<div class="wtotal">'+euro(total)+'</div>'+
+      '<span style="color:#ccc;font-size:18px;">›</span></div>';
+  }).join('');
+}
+
 const thisMon=getMon(ds(today));
 function pillCls(mon,pmts){
   if(!mon||isNaN(mon.getTime()))return 'past';
@@ -356,7 +391,7 @@ function setView(v){
   activeView=v;drillKey=null;
   document.getElementById('back-btn').style.display='none';
   document.getElementById('page-title').textContent='Payment Tracker';
-  document.querySelectorAll('.view-tab').forEach((b,i)=>b.classList.toggle('active',['weeks','months','suppliers','all'][i]===v));
+  document.querySelectorAll('.view-tab').forEach((b,i)=>b.classList.toggle('active',['weeks','months','years','suppliers','all'][i]===v));
   document.getElementById('supplier-sort-bar').style.display=v==='suppliers'?'block':'none';
   renderCurrent();
 }
@@ -386,15 +421,16 @@ function renderCurrent(){
   document.getElementById('supplier-sort-bar').style.display=activeView==='suppliers'?'block':'none';
   if(activeView==='weeks')renderWeeks(list);
   else if(activeView==='months')renderMonths(list);
+  else if(activeView==='years')renderYears(list);
   else if(activeView==='suppliers')renderSuppliers(list);
   else renderTable(list);
 }
 
 function renderDrill(list){
-  const g=activeView==='weeks'?wkGroups(list)[drillKey]:mGroups(list)[drillKey];
+  const g=activeView==='weeks'?wkGroups(list)[drillKey]:activeView==='years'?yGroups(list)[drillKey]:mGroups(list)[drillKey];
   if(!g){goBack();return;}
   renderTable(g.payments);
-  renderSupBreakdown(g.payments,activeView==='weeks'?'Supplier totals this week':'Supplier totals this month');
+  renderSupBreakdown(g.payments,activeView==='weeks'?'Supplier totals this week':activeView==='years'?'Supplier totals this year':'Supplier totals this month');
 }
 
 function renderWeeks(list){
@@ -408,7 +444,7 @@ function renderWeeks(list){
     const paid=ps.filter(p=>p.status==='paid').length;
     const pend=ps.filter(p=>p.status==='pending').length;
     const over=ps.filter(p=>p.status==='overdue').length;
-    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillWeek(\''+k+'\')">'+
+    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillWeek(\''+k+'\')">' +
       '<span class="wpill '+pc+'">Wk '+wk+(pc==='now'?' ★':'')+'</span>'+
       '<div class="wlabel">'+fmtD(mon)+'<small>'+ps.length+' payment'+(ps.length!==1?'s':'')+'</small></div>'+
       '<div class="wcounts">'+
@@ -435,7 +471,7 @@ function renderMonths(list){
     const md=new Date(parseInt(y),parseInt(m)-1,1);
     const nd=new Date(today.getFullYear(),today.getMonth(),1);
     const pc=md<nd?'past':md.getTime()===nd.getTime()?'now':'future';
-    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillMonth(\''+k+'\')">'+
+    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillMonth(\''+k+'\')">' +
       '<span class="wpill '+pc+'">'+fmtMK(k)+'</span>'+
       '<div class="wlabel" style="flex:1;"></div>'+
       '<div class="wcounts">'+
@@ -498,15 +534,13 @@ function renderTable(list){
   if(!list.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
   document.getElementById('main').innerHTML='<div class="table-wrap"><table><thead><tr>'+
     '<th>Supplier</th><th>Amount</th><th>Issue Date</th><th>Due Date</th><th>Week</th>'+
-    '<th>Status</th><th>Invoice #</th><th>Invoice file</th>'+
+    '<th>Status</th><th>Invoice #</th><th>Invoice</th>'+
     (showCo?'<th>Company</th>':'')+
     '<th>Actions</th></tr></thead><tbody>'+
     list.map(p=>{
       const wn=p.due?getWk(getMon(p.due)):'—';
       const invCell=p.invoiceLink
-        ?'<a href="'+p.invoiceLink+'" target="_blank" style="color:#2563eb;font-size:11px;text-decoration:none;">📎 View</a>'
-        :p.fileUrl
-        ?'<a href="'+p.fileUrl+'" target="_blank" style="color:#2563eb;font-size:11px;text-decoration:none;">📎 View</a>'
+        ?'<a href="'+p.invoiceLink+'" target="_blank" style="color:#2563eb;font-size:12px;font-weight:500;text-decoration:none;padding:2px 8px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;">🔗 Invoice</a>'
         :p.fileName
           ?'<span style="font-size:11px;color:#888;" title="'+p.fileName+'">📎 '+p.fileName.substring(0,10)+'...</span>'
           :'<span style="color:#ccc;font-size:11px;">—</span>';
@@ -516,7 +550,7 @@ function renderTable(list){
       return '<tr>'+
         '<td title="'+p.supplier+'">'+p.supplier+'</td>'+
         '<td style="font-weight:600;">'+euro(p.amount)+'</td>'+
-        '<td style="color:#888;">'+( p.issueDate||'—')+'</td>'+
+        '<td style="color:#888;">'+(p.issueDate||'—')+'</td>'+
         '<td>'+(p.due||'—')+'</td>'+
         '<td style="color:#888;">Wk '+wn+'</td>'+
         '<td><span class="badge '+p.status+'" onclick="showStatusMenu(event,'+p.id+')" title="Click to change">'+p.status+' ▾</span></td>'+
@@ -528,6 +562,12 @@ function renderTable(list){
     }).join('')+'</tbody></table></div>';
 }
 
+function drillYear(k){
+  drillKey=k;activeView='years';
+  const g=yGroups(src())[k];
+  if(g){document.getElementById('back-btn').style.display='inline-block';document.getElementById('page-title').textContent=k;renderMetrics(g.payments);}
+  document.getElementById('main').innerHTML='';renderDrill(src());
+}
 function drillWeek(k){
   drillKey=k;activeView='weeks';
   const g=wkGroups(src())[k];
@@ -582,7 +622,7 @@ function openModal(id=null){
     '</div><input type="hidden" id="f-st" value="'+sv+'"></div>'+
     (p&&p.fileName?'<div style="font-size:12px;color:#2563eb;margin-bottom:8px;">📎 '+p.fileName+'</div>':'')+
     '<div class="field"><label>Notes</label><textarea id="f-notes">'+(p?p.notes||'':'')+'</textarea></div>'+
-    '<div class="field"><label>Invoice Link (Google Drive)</label><input id="f-link" type="url" value="'+(p?p.invoiceLink||'':'')+'" placeholder="https://drive.google.com/..."></div>'+'
+    '<div class="field"><label>Invoice Link (Google Drive / URL)</label><input id="f-link" type="url" value="'+(p&&p.invoiceLink?p.invoiceLink:'')+'" placeholder="https://drive.google.com/..."></div>'+
     '<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="savePayment()">Save</button></div>';
   document.getElementById('modal-overlay').classList.add('open');
   updateHint();
@@ -648,13 +688,15 @@ async function savePayment(){
   const due=document.getElementById('f-due').value;
   if(!co||!due){toast('Please fill Company and Due Date');return;}
   const p={
-    company:co,invoice:document.getElementById('f-inv').value||('INV-'+Date.now()),
+    company:co,
+    invoice:document.getElementById('f-inv').value||('INV-'+Date.now()),
     supplier:document.getElementById('f-sup').value||'—',
     amount:parseFloat(document.getElementById('f-amt').value)||0,
-    issueDate:document.getElementById('f-iss').value||'',due:due,
+    issueDate:document.getElementById('f-iss').value||'',
+    due:due,
     status:document.getElementById('f-st').value,
     notes:document.getElementById('f-notes').value,
-    invoiceLink:document.getElementById('f-link')?.value||'',
+    invoiceLink:document.getElementById('f-link').value||'',
     fileName:pendingFile?pendingFile.name:(editId?payments.find(x=>x.id===editId)?.fileName||'':'')
   };
   const ok=await dbSave(p,editId);
@@ -694,10 +736,10 @@ function doExport(mode){
     if(drillKey){const g=activeView==='weeks'?wkGroups(src())[drillKey]:mGroups(src())[drillKey];list=g?g.payments:src();}
     else list=src();
   }else list=payments;
-  const rows=[['Supplier','Amount','Issue Date','Due Date','Week','Status','Invoice #','Company','Notes']];
+  const rows=[['Supplier','Amount','Issue Date','Due Date','Week','Status','Invoice #','Company','Notes','Invoice Link']];
   list.forEach(p=>{
     const wn=p.due?getWk(getMon(p.due)):'';
-    rows.push([p.supplier,p.amount,p.issueDate||'',p.due||'',wn,p.status,p.invoice,p.company,p.notes||'']);
+    rows.push([p.supplier,p.amount,p.issueDate||'',p.due||'',wn,p.status,p.invoice,p.company,p.notes||'',p.invoiceLink||'']);
   });
   const csv=rows.map(r=>r.map(v=>'"'+v+'"').join(',')).join('\n');
   const a=document.createElement('a');
@@ -760,7 +802,8 @@ async function confirmImport(){
       company:p.company||'Vonston',invoice:p.invoice||('IMP-'+Date.now()),
       supplier:p.supplier||'—',amount:parseFloat(p.amount)||0,
       issue_date:p.issue_date||null,due_date:p.due_date||ds(today),
-      status:p.status||'pending',notes:'',invoice_file_name:''
+      status:p.status||'pending',notes:'',invoice_file_name:'',
+      invoice_url:''
     };
     const{error}=await db.from('payments').insert(row);
     if(error)fail++;else ok++;
