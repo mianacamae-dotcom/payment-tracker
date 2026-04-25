@@ -264,7 +264,7 @@ async function loadPayments(){
     supplier:p.supplier||'',amount:parseFloat(p.amount)||0,
     issueDate:p.issue_date||'',due:p.due_date||'',
     status:p.status||'pending',notes:p.notes||'',
-    fileName:p.invoice_file_name||'',fileUrl:p.invoice_file_url||''
+    fileName:p.invoice_file_name||''
   }));
   buildWkOpts();renderNav();renderCurrent();
 }
@@ -274,7 +274,7 @@ async function dbSave(p,id){
     company:p.company,invoice:p.invoice,supplier:p.supplier,
     amount:p.amount,issue_date:p.issueDate||null,
     due_date:p.due,status:p.status,notes:p.notes,
-    invoice_file_name:p.fileName||'',invoice_file_url:p.fileUrl||''
+    invoice_file_name:p.fileName||''
   };
   if(id){const{error}=await db.from('payments').update(row).eq('id',id);return!error;}
   else{const{error}=await db.from('payments').insert(row);return!error;}
