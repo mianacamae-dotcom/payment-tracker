@@ -651,8 +651,7 @@ async function savePayment(){
     issueDate:document.getElementById('f-iss').value||'',due:due,
     status:document.getElementById('f-st').value,
     notes:document.getElementById('f-notes').value,
-    fileName:pendingFile?pendingFile.name:(editId?payments.find(x=>x.id===editId)?.fileName||'':''),
-    fileUrl:editId?payments.find(x=>x.id===editId)?.fileUrl||'':''
+    fileName:pendingFile?pendingFile.name:(editId?payments.find(x=>x.id===editId)?.fileName||'':'')
   };
   const ok=await dbSave(p,editId);
   if(ok){closeModal();toast(editId?'Payment updated!':'Payment added!');await loadPayments();}
