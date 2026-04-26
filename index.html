@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -126,6 +125,11 @@ tr:hover td{background:#f9f9f7;}
 .import-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #eee;font-size:12px;}
 .import-row:last-child{border-bottom:none;}
 .rbadge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dbeafe;color:#2563eb;white-space:nowrap;}
+.sup-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #eee;}
+.sup-row:last-child{border-bottom:none;}
+.sup-row input{flex:1;font-size:13px;padding:6px 10px;border:1px solid #ddd;border-radius:8px;font-family:inherit;}
+.sup-row input:focus{outline:none;border-color:#1a1a1a;}
+.sup-count{font-size:11px;color:#888;white-space:nowrap;min-width:80px;text-align:right;}
 .toast{position:fixed;bottom:1.5rem;right:1.5rem;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
 .toast.show{opacity:1;}
 @media(max-width:600px){.field-row{grid-template-columns:1fr;}.search-row input.narrow,.search-row select.narrow{width:100%;}}
@@ -154,6 +158,7 @@ tr:hover td{background:#f9f9f7;}
     <span id="lock-icon">🔒</span>
     <span class="admin-status" id="admin-status">Admin locked — edit & delete disabled</span>
     <button class="btn sm" id="admin-btn" onclick="toggleAdmin()">Unlock</button>
+    <button class="btn sm" id="sup-mgmt-btn" onclick="openSupMgmt()" style="display:none;">🏷️ Manage Suppliers</button>
   </div>
   <div class="company-nav" id="company-nav"></div>
   <div class="view-tabs">
@@ -191,6 +196,16 @@ tr:hover td{background:#f9f9f7;}
   <div class="modal" id="modal-content"></div>
 </div>
 
+<div class="modal-overlay" id="sup-overlay" onclick="closeSupBg(event)">
+  <div class="modal" style="max-width:520px;">
+    <h3>🏷️ Manage Suppliers</h3>
+    <p style="font-size:12px;color:#888;margin-bottom:1rem;">Rename suppliers across all payments. Edit a name and click Save.</p>
+    <input type="text" id="sup-search" placeholder="Search suppliers..." oninput="renderSupList()" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;font-family:inherit;">
+    <div id="sup-list" style="max-height:400px;overflow-y:auto;"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeSupMgmt()">Close</button></div>
+  </div>
+</div>
+
 <div class="import-overlay" id="import-overlay" onclick="closeImportBg(event)">
   <div class="import-modal">
     <h3>Import from Excel</h3>
@@ -212,23 +227,23 @@ tr:hover td{background:#f9f9f7;}
 <div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL = 'https://gxrmyiepbcimdwbgcgvp.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4cm15aWVwYmNpbWR3YmdjZ3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjE1NTUsImV4cCI6MjA5MjU5NzU1NX0.60Aryz_rsFZh7hDO9J3klouqF1av0tpycws_HhfxYIA';
-const ADMIN_PASSWORD = '1304FS';
-const MODEL = 'claude-haiku-4-5-20251001';
-const COMPANIES = ['Vonston','Golden Mile','Época','BAIES','Winner Direction','Manjerico Palaciano'];
-const COLORS = ['#7C3AED','#059669','#DC2626','#2563EB','#DB2777','#D97706'];
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const SUPABASE_URL='https://gxrmyiepbcimdwbgcgvp.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4cm15aWVwYmNpbWR3YmdjZ3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjE1NTUsImV4cCI6MjA5MjU5NzU1NX0.60Aryz_rsFZh7hDO9J3klouqF1av0tpycws_HhfxYIA';
+const ADMIN_PASSWORD='1304FS';
+const MODEL='claude-haiku-4-5-20251001';
+const COMPANIES=['Vonston','Golden Mile','Época','BAIES','Winner Direction','Manjerico Palaciano'];
+const COLORS=['#7C3AED','#059669','#DC2626','#2563EB','#DB2777','#D97706'];
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const {createClient} = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+const {createClient}=supabase;
+const db=createClient(SUPABASE_URL,SUPABASE_KEY);
 
-const today = new Date(); today.setHours(0,0,0,0);
-const ds = d => d.toISOString().split('T')[0];
-const parseD = s => new Date(s+'T00:00:00');
-const fmtD = d => d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-const cc = n => COLORS[COMPANIES.indexOf(n) % COLORS.length] || '#888';
-const euro = n => '€' + (parseFloat(n)||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+const today=new Date();today.setHours(0,0,0,0);
+const ds=d=>d.toISOString().split('T')[0];
+const parseD=s=>new Date(s+'T00:00:00');
+const fmtD=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const cc=n=>COLORS[COMPANIES.indexOf(n)%COLORS.length]||'#888';
+const euro=n=>'€'+(parseFloat(n)||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
 
 function getMon(s){
   let d=parseD(s),day=d.getDay(),diff=day===0?-6:1-day,m=new Date(d);
@@ -342,31 +357,6 @@ function yGroups(list){
   return g;
 }
 
-function renderYears(list){
-  const g=yGroups(list);
-  const keys=Object.keys(g).sort((a,b)=>b.localeCompare(a));
-  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
-  const curY=String(today.getFullYear());
-  document.getElementById('main').innerHTML=keys.map(k=>{
-    const{payments:ps}=g[k];
-    const total=ps.reduce((s,p)=>s+p.amount,0);
-    const paid=ps.filter(p=>p.status==='paid').length;
-    const pend=ps.filter(p=>p.status==='pending').length;
-    const over=ps.filter(p=>p.status==='overdue').length;
-    const pc=k<curY?'past':k===curY?'now':'future';
-    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillYear(\''+k+'\')">' +
-      '<span class="wpill '+pc+'">'+k+(pc==='now'?' ★':'')+'</span>'+
-      '<div class="wlabel" style="flex:1;"></div>'+
-      '<div class="wcounts">'+
-      (paid?'<span class="wc paid">'+paid+' paid</span>':'')+
-      (pend?'<span class="wc pending">'+pend+' pending</span>':'')+
-      (over?'<span class="wc overdue">'+over+' overdue</span>':'')+
-      '</div>'+
-      '<div class="wtotal">'+euro(total)+'</div>'+
-      '<span style="color:#ccc;font-size:18px;">›</span></div>';
-  }).join('');
-}
-
 const thisMon=getMon(ds(today));
 function pillCls(mon,pmts){
   if(!mon||isNaN(mon.getTime()))return 'past';
@@ -381,7 +371,7 @@ function renderNav(){
   document.getElementById('company-nav').innerHTML=
     ['All',...COMPANIES].map(c=>{
       const dot=c!=='All'?'<span class="cdot" style="background:'+cc(c)+'"></span>':'';
-      return '<button class="'+(activeCompany===c?'active':'')+'" onclick="setCompany(\''+c.replace(/'/g,"\\'")+'\')">'+ dot+c+'</button>';
+      return '<button class="'+(activeCompany===c?'active':'')+'" onclick="setCompany(\''+c.replace(/'/g,"\\'")+'\')">'+dot+c+'</button>';
     }).join('');
 }
 
@@ -444,16 +434,16 @@ function renderWeeks(list){
     const paid=ps.filter(p=>p.status==='paid').length;
     const pend=ps.filter(p=>p.status==='pending').length;
     const over=ps.filter(p=>p.status==='overdue').length;
-    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillWeek(\''+k+'\')">' +
-      '<span class="wpill '+pc+'">Wk '+wk+(pc==='now'?' ★':'')+'</span>'+
-      '<div class="wlabel">'+fmtD(mon)+'<small>'+ps.length+' payment'+(ps.length!==1?'s':'')+'</small></div>'+
-      '<div class="wcounts">'+
-      (paid?'<span class="wc paid">'+paid+' paid</span>':'')+
-      (pend?'<span class="wc pending">'+pend+' pending</span>':'')+
-      (over?'<span class="wc overdue">'+over+' overdue</span>':'')+
-      '</div>'+
-      '<div class="wtotal">'+euro(total)+'</div>'+
-      '<span style="color:#ccc;font-size:18px;">›</span></div>';
+    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillWeek(\''+k+'\')">'
+      +'<span class="wpill '+pc+'">Wk '+wk+(pc==='now'?' ★':'')+'</span>'
+      +'<div class="wlabel">'+fmtD(mon)+'<small>'+ps.length+' payment'+(ps.length!==1?'s':'')+'</small></div>'
+      +'<div class="wcounts">'
+      +(paid?'<span class="wc paid">'+paid+' paid</span>':'')
+      +(pend?'<span class="wc pending">'+pend+' pending</span>':'')
+      +(over?'<span class="wc overdue">'+over+' overdue</span>':'')
+      +'</div>'
+      +'<div class="wtotal">'+euro(total)+'</div>'
+      +'<span style="color:#ccc;font-size:18px;">›</span></div>';
   }).join('');
 }
 
@@ -471,16 +461,41 @@ function renderMonths(list){
     const md=new Date(parseInt(y),parseInt(m)-1,1);
     const nd=new Date(today.getFullYear(),today.getMonth(),1);
     const pc=md<nd?'past':md.getTime()===nd.getTime()?'now':'future';
-    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillMonth(\''+k+'\')">' +
-      '<span class="wpill '+pc+'">'+fmtMK(k)+'</span>'+
-      '<div class="wlabel" style="flex:1;"></div>'+
-      '<div class="wcounts">'+
-      (paid?'<span class="wc paid">'+paid+' paid</span>':'')+
-      (pend?'<span class="wc pending">'+pend+' pending</span>':'')+
-      (over?'<span class="wc overdue">'+over+' overdue</span>':'')+
-      '</div>'+
-      '<div class="wtotal">'+euro(total)+'</div>'+
-      '<span style="color:#ccc;font-size:18px;">›</span></div>';
+    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillMonth(\''+k+'\')">'
+      +'<span class="wpill '+pc+'">'+fmtMK(k)+'</span>'
+      +'<div class="wlabel" style="flex:1;"></div>'
+      +'<div class="wcounts">'
+      +(paid?'<span class="wc paid">'+paid+' paid</span>':'')
+      +(pend?'<span class="wc pending">'+pend+' pending</span>':'')
+      +(over?'<span class="wc overdue">'+over+' overdue</span>':'')
+      +'</div>'
+      +'<div class="wtotal">'+euro(total)+'</div>'
+      +'<span style="color:#ccc;font-size:18px;">›</span></div>';
+  }).join('');
+}
+
+function renderYears(list){
+  const g=yGroups(list);
+  const keys=Object.keys(g).sort((a,b)=>b.localeCompare(a));
+  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
+  const curY=String(today.getFullYear());
+  document.getElementById('main').innerHTML=keys.map(k=>{
+    const{payments:ps}=g[k];
+    const total=ps.reduce((s,p)=>s+p.amount,0);
+    const paid=ps.filter(p=>p.status==='paid').length;
+    const pend=ps.filter(p=>p.status==='pending').length;
+    const over=ps.filter(p=>p.status==='overdue').length;
+    const pc=k<curY?'past':k===curY?'now':'future';
+    return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillYear(\''+k+'\')">'
+      +'<span class="wpill '+pc+'">'+k+(pc==='now'?' ★':'')+'</span>'
+      +'<div class="wlabel" style="flex:1;"></div>'
+      +'<div class="wcounts">'
+      +(paid?'<span class="wc paid">'+paid+' paid</span>':'')
+      +(pend?'<span class="wc pending">'+pend+' pending</span>':'')
+      +(over?'<span class="wc overdue">'+over+' overdue</span>':'')
+      +'</div>'
+      +'<div class="wtotal">'+euro(total)+'</div>'
+      +'<span style="color:#ccc;font-size:18px;">›</span></div>';
   }).join('');
 }
 
@@ -510,34 +525,34 @@ function renderSuppliers(list){
   if(!sorted.length){document.getElementById('main').innerHTML='<div class="empty">No suppliers found.</div>';return;}
   document.getElementById('main').innerHTML=
     '<div class="supplier-grid">'+sorted.map(([n,d])=>
-      '<div class="supplier-card"><div class="supplier-name">'+n+'</div><div class="supplier-amt">'+euro(d.total)+'</div>'+
-      '<div class="supplier-meta">'+d.count+' payment'+(d.count!==1?'s':'')+' · '+euro(d.paid)+' paid</div></div>').join('')+'</div>'+
-    '<div class="section-label">Weekly breakdown</div>'+
-    '<div class="table-wrap"><table><thead><tr><th>Supplier</th>'+allWks.map(k=>'<th style="text-align:right">Wk '+getWk(parseD(k))+'</th>').join('')+'<th style="text-align:right">Total</th></tr></thead>'+
-    '<tbody>'+sorted.map(([n])=>'<tr><td>'+n+'</td>'+allWks.map(w=>'<td style="text-align:right">'+(wkMap[n]&&wkMap[n][w]?euro(wkMap[n][w]):'-')+'</td>').join('')+'<td style="text-align:right;font-weight:600">'+euro(map[n].total)+'</td></tr>').join('')+'</tbody></table></div>'+
-    '<div class="section-label">Monthly breakdown</div>'+
-    '<div class="table-wrap"><table><thead><tr><th>Supplier</th>'+allMos.map(k=>'<th style="text-align:right">'+fmtMK(k)+'</th>').join('')+'<th style="text-align:right">Total</th></tr></thead>'+
-    '<tbody>'+sorted.map(([n])=>'<tr><td>'+n+'</td>'+allMos.map(m=>'<td style="text-align:right">'+(moMap[n]&&moMap[n][m]?euro(moMap[n][m]):'-')+'</td>').join('')+'<td style="text-align:right;font-weight:600">'+euro(map[n].total)+'</td></tr>').join('')+'</tbody></table></div>';
+      '<div class="supplier-card"><div class="supplier-name">'+n+'</div><div class="supplier-amt">'+euro(d.total)+'</div>'
+      +'<div class="supplier-meta">'+d.count+' payment'+(d.count!==1?'s':'')+' · '+euro(d.paid)+' paid</div></div>').join('')+'</div>'
+    +'<div class="section-label">Weekly breakdown</div>'
+    +'<div class="table-wrap"><table><thead><tr><th>Supplier</th>'+allWks.map(k=>'<th style="text-align:right">Wk '+getWk(parseD(k))+'</th>').join('')+'<th style="text-align:right">Total</th></tr></thead>'
+    +'<tbody>'+sorted.map(([n])=>'<tr><td>'+n+'</td>'+allWks.map(w=>'<td style="text-align:right">'+(wkMap[n]&&wkMap[n][w]?euro(wkMap[n][w]):'-')+'</td>').join('')+'<td style="text-align:right;font-weight:600">'+euro(map[n].total)+'</td></tr>').join('')+'</tbody></table></div>'
+    +'<div class="section-label">Monthly breakdown</div>'
+    +'<div class="table-wrap"><table><thead><tr><th>Supplier</th>'+allMos.map(k=>'<th style="text-align:right">'+fmtMK(k)+'</th>').join('')+'<th style="text-align:right">Total</th></tr></thead>'
+    +'<tbody>'+sorted.map(([n])=>'<tr><td>'+n+'</td>'+allMos.map(m=>'<td style="text-align:right">'+(moMap[n]&&moMap[n][m]?euro(moMap[n][m]):'-')+'</td>').join('')+'<td style="text-align:right;font-weight:600">'+euro(map[n].total)+'</td></tr>').join('')+'</tbody></table></div>';
 }
 
 function renderSupBreakdown(list,label){
   const map={};
   list.forEach(p=>{if(!map[p.supplier])map[p.supplier]={total:0,count:0};map[p.supplier].total+=p.amount;map[p.supplier].count++;});
   const sorted=Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
-  document.getElementById('main').innerHTML+='<div class="section-label">'+label+'</div>'+
-    '<div class="supplier-grid">'+sorted.map(([n,d])=>
+  document.getElementById('main').innerHTML+='<div class="section-label">'+label+'</div>'
+    +'<div class="supplier-grid">'+sorted.map(([n,d])=>
       '<div class="supplier-card"><div class="supplier-name">'+n+'</div><div class="supplier-amt">'+euro(d.total)+'</div><div class="supplier-meta">'+d.count+' payment'+(d.count!==1?'s':'')+'</div></div>').join('')+'</div>';
 }
 
 function renderTable(list){
   const showCo=activeCompany==='All';
   if(!list.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
-  document.getElementById('main').innerHTML='<div class="table-wrap"><table><thead><tr>'+
-    '<th>Supplier</th><th>Amount</th><th>Issue Date</th><th>Due Date</th><th>Week</th>'+
-    '<th>Status</th><th>Invoice #</th><th>Invoice</th>'+
-    (showCo?'<th>Company</th>':'')+
-    '<th>Actions</th></tr></thead><tbody>'+
-    list.map(p=>{
+  document.getElementById('main').innerHTML='<div class="table-wrap"><table><thead><tr>'
+    +'<th>Supplier</th><th>Amount</th><th>Issue Date</th><th>Due Date</th><th>Week</th>'
+    +'<th>Status</th><th>Invoice #</th><th>Invoice</th>'
+    +(showCo?'<th>Company</th>':'')
+    +'<th>Actions</th></tr></thead><tbody>'
+    +list.map(p=>{
       const wn=p.due?getWk(getMon(p.due)):'—';
       const invCell=p.invoiceLink
         ?'<a href="'+p.invoiceLink+'" target="_blank" style="color:#2563eb;font-size:12px;font-weight:500;text-decoration:none;padding:2px 8px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;">🔗 Invoice</a>'
@@ -547,18 +562,18 @@ function renderTable(list){
       const actions=isAdmin
         ?'<button class="btn sm" onclick="openModal('+p.id+')" style="margin-right:4px;">Edit</button><button class="btn sm danger" onclick="delPayment('+p.id+')" title="Delete">🗑️</button>'
         :'<span style="color:#ccc;">🔒</span>';
-      return '<tr>'+
-        '<td title="'+p.supplier+'">'+p.supplier+'</td>'+
-        '<td style="font-weight:600;">'+euro(p.amount)+'</td>'+
-        '<td style="color:#888;">'+(p.issueDate||'—')+'</td>'+
-        '<td>'+(p.due||'—')+'</td>'+
-        '<td style="color:#888;">Wk '+wn+'</td>'+
-        '<td><span class="badge '+p.status+'" onclick="showStatusMenu(event,'+p.id+')" title="Click to change">'+p.status+' ▾</span></td>'+
-        '<td style="font-family:monospace;font-size:12px;" title="'+p.invoice+'">'+(p.invoice||'—')+'</td>'+
-        '<td>'+invCell+'</td>'+
-        (showCo?'<td><span class="cdot" style="background:'+cc(p.company)+'"></span>'+p.company+'</td>':'')+
-        '<td style="white-space:nowrap;">'+actions+'</td>'+
-        '</tr>';
+      return '<tr>'
+        +'<td title="'+p.supplier+'">'+p.supplier+'</td>'
+        +'<td style="font-weight:600;">'+euro(p.amount)+'</td>'
+        +'<td style="color:#888;">'+(p.issueDate||'—')+'</td>'
+        +'<td>'+(p.due||'—')+'</td>'
+        +'<td style="color:#888;">Wk '+wn+'</td>'
+        +'<td><span class="badge '+p.status+'" onclick="showStatusMenu(event,'+p.id+')" title="Click to change">'+p.status+' ▾</span></td>'
+        +'<td style="font-family:monospace;font-size:12px;" title="'+p.invoice+'">'+(p.invoice||'—')+'</td>'
+        +'<td>'+invCell+'</td>'
+        +(showCo?'<td><span class="cdot" style="background:'+cc(p.company)+'"></span>'+p.company+'</td>':'')
+        +'<td style="white-space:nowrap;">'+actions+'</td>'
+        +'</tr>';
     }).join('')+'</tbody></table></div>';
 }
 
@@ -602,28 +617,28 @@ function openModal(id=null){
   const p=id?payments.find(x=>x.id===id):null;
   const sv=p?p.status:'pending';
   document.getElementById('modal-content').innerHTML=
-    '<h3>'+(id?'Edit payment':'Add payment')+'</h3>'+
-    '<div class="ai-box"><p>🤖 Upload invoice — AI will auto-fill the fields</p>'+
-    '<div class="upload-area" onclick="document.getElementById(\'inv-file\').click()">'+
-    '<input type="file" id="inv-file" accept=".pdf,.jpg,.jpeg,.png" onchange="handleInvoice(this)">'+
-    'Click to upload invoice (PDF or image)</div>'+
-    '<div class="ai-status" id="ai-status"></div></div>'+
-    '<div class="field"><label>Company</label><select id="f-co">'+COMPANIES.map(c=>'<option'+(p&&p.company===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'+
-    '<div class="field-row">'+
-    '<div class="field"><label>Invoice number</label><input id="f-inv" value="'+(p?p.invoice:'')+'" placeholder="INV-0001"></div>'+
-    '<div class="field"><label>Amount (€)</label><input id="f-amt" type="number" step="0.01" value="'+(p?p.amount:'')+'" placeholder="0.00"></div></div>'+
-    '<div class="field"><label>Supplier</label><input id="f-sup" value="'+(p?p.supplier:'')+'" placeholder="Supplier name"></div>'+
-    '<div class="field-row">'+
-    '<div class="field"><label>Issue Date</label><input id="f-iss" type="date" value="'+(p&&p.issueDate?p.issueDate:'')+'"></div>'+
-    '<div class="field"><label>Due Date</label><input id="f-due" type="date" value="'+(p?p.due:ds(today))+'" oninput="updateHint()"></div></div>'+
-    '<div class="hint" id="mon-hint"></div>'+
-    '<div class="field"><label>Status</label><div class="status-picker">'+
-    ['paid','pending','overdue'].map(s=>'<button type="button" class="spick'+(sv===s?' active '+s:'')+'" onclick="pickSt(\''+s+'\')">'+s.charAt(0).toUpperCase()+s.slice(1)+'</button>').join('')+
-    '</div><input type="hidden" id="f-st" value="'+sv+'"></div>'+
-    (p&&p.fileName?'<div style="font-size:12px;color:#2563eb;margin-bottom:8px;">📎 '+p.fileName+'</div>':'')+
-    '<div class="field"><label>Notes</label><textarea id="f-notes">'+(p?p.notes||'':'')+'</textarea></div>'+
-    '<div class="field"><label>Invoice Link (Google Drive / URL)</label><input id="f-link" type="url" value="'+(p&&p.invoiceLink?p.invoiceLink:'')+'" placeholder="https://drive.google.com/..."></div>'+
-    '<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="savePayment()">Save</button></div>';
+    '<h3>'+(id?'Edit payment':'Add payment')+'</h3>'
+    +'<div class="ai-box"><p>🤖 Upload invoice — AI will auto-fill the fields</p>'
+    +'<div class="upload-area" onclick="document.getElementById(\'inv-file\').click()">'
+    +'<input type="file" id="inv-file" accept=".pdf,.jpg,.jpeg,.png" onchange="handleInvoice(this)">'
+    +'Click to upload invoice (PDF or image)</div>'
+    +'<div class="ai-status" id="ai-status"></div></div>'
+    +'<div class="field"><label>Company</label><select id="f-co">'+COMPANIES.map(c=>'<option'+(p&&p.company===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'
+    +'<div class="field-row">'
+    +'<div class="field"><label>Invoice number</label><input id="f-inv" value="'+(p?p.invoice:'')+'" placeholder="INV-0001"></div>'
+    +'<div class="field"><label>Amount (€)</label><input id="f-amt" type="number" step="0.01" value="'+(p?p.amount:'')+'" placeholder="0.00"></div></div>'
+    +'<div class="field"><label>Supplier</label><input id="f-sup" value="'+(p?p.supplier:'')+'" placeholder="Supplier name"></div>'
+    +'<div class="field-row">'
+    +'<div class="field"><label>Issue Date</label><input id="f-iss" type="date" value="'+(p&&p.issueDate?p.issueDate:'')+'"></div>'
+    +'<div class="field"><label>Due Date</label><input id="f-due" type="date" value="'+(p?p.due:ds(today))+'" oninput="updateHint()"></div></div>'
+    +'<div class="hint" id="mon-hint"></div>'
+    +'<div class="field"><label>Status</label><div class="status-picker">'
+    +['paid','pending','overdue'].map(s=>'<button type="button" class="spick'+(sv===s?' active '+s:'')+'" onclick="pickSt(\''+s+'\')">'+s.charAt(0).toUpperCase()+s.slice(1)+'</button>').join('')
+    +'</div><input type="hidden" id="f-st" value="'+sv+'"></div>'
+    +(p&&p.fileName?'<div style="font-size:12px;color:#2563eb;margin-bottom:8px;">📎 '+p.fileName+'</div>':'')
+    +'<div class="field"><label>Notes</label><textarea id="f-notes">'+(p?p.notes||'':'')+'</textarea></div>'
+    +'<div class="field"><label>Invoice Link (Google Drive / URL)</label><input id="f-link" type="url" value="'+(p&&p.invoiceLink?p.invoiceLink:'')+'" placeholder="https://drive.google.com/..."></div>'
+    +'<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="savePayment()">Save</button></div>';
   document.getElementById('modal-overlay').classList.add('open');
   updateHint();
 }
@@ -719,11 +734,13 @@ function toggleAdmin(){
   if(pw===ADMIN_PASSWORD){isAdmin=true;updateAdminUI();renderCurrent();toast('Admin mode enabled');}
   else alert('Incorrect password.');
 }
+
 function updateAdminUI(){
   document.getElementById('admin-status').textContent=isAdmin?'Admin mode — edit & delete enabled':'Admin locked — edit & delete disabled';
   document.getElementById('admin-status').className='admin-status'+(isAdmin?' on':'');
   document.getElementById('lock-icon').textContent=isAdmin?'🔓':'🔒';
   document.getElementById('admin-btn').textContent=isAdmin?'Lock':'Unlock';
+  document.getElementById('sup-mgmt-btn').style.display=isAdmin?'inline-block':'none';
 }
 
 function toggleExport(){document.getElementById('export-dropdown').classList.toggle('open');}
@@ -733,7 +750,7 @@ function doExport(mode){
   document.getElementById('export-dropdown').classList.remove('open');
   let list;
   if(mode==='current'){
-    if(drillKey){const g=activeView==='weeks'?wkGroups(src())[drillKey]:mGroups(src())[drillKey];list=g?g.payments:src();}
+    if(drillKey){const g=activeView==='weeks'?wkGroups(src())[drillKey]:activeView==='years'?yGroups(src())[drillKey]:mGroups(src())[drillKey];list=g?g.payments:src();}
     else list=src();
   }else list=payments;
   const rows=[['Supplier','Amount','Issue Date','Due Date','Week','Status','Invoice #','Company','Notes','Invoice Link']];
@@ -782,10 +799,10 @@ async function handleImport(input){
     importedRows=JSON.parse(match[0]);
     document.getElementById('imp-status').textContent='Found '+importedRows.length+' payments — review and confirm:';
     document.getElementById('imp-preview').innerHTML=importedRows.map(p=>
-      '<div class="import-row"><span class="rbadge">'+p.company+'</span>'+
-      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;">'+p.supplier+'</span>'+
-      '<span style="font-weight:600;">'+euro(p.amount)+'</span>'+
-      '<span style="color:#888;font-size:11px;">'+(p.due_date||'no date')+'</span></div>').join('');
+      '<div class="import-row"><span class="rbadge">'+p.company+'</span>'
+      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;">'+p.supplier+'</span>'
+      +'<span style="font-weight:600;">'+euro(p.amount)+'</span>'
+      +'<span style="color:#888;font-size:11px;">'+(p.due_date||'no date')+'</span></div>').join('');
     document.getElementById('imp-confirm').style.display='inline-block';
   }catch(err){
     console.error(err);
@@ -802,8 +819,7 @@ async function confirmImport(){
       company:p.company||'Vonston',invoice:p.invoice||('IMP-'+Date.now()),
       supplier:p.supplier||'—',amount:parseFloat(p.amount)||0,
       issue_date:p.issue_date||null,due_date:p.due_date||ds(today),
-      status:p.status||'pending',notes:'',invoice_file_name:'',
-      invoice_url:''
+      status:p.status||'pending',notes:'',invoice_file_name:'',invoice_url:''
     };
     const{error}=await db.from('payments').insert(row);
     if(error)fail++;else ok++;
@@ -811,6 +827,65 @@ async function confirmImport(){
   closeImport();
   toast('Imported '+ok+' payments!'+(fail>0?' ('+fail+' failed)':''));
   await loadPayments();
+}
+
+// ── Supplier Management ──────────────────────────────────────
+function openSupMgmt(){
+  document.getElementById('sup-search').value='';
+  renderSupList();
+  document.getElementById('sup-overlay').classList.add('open');
+}
+function closeSupMgmt(){document.getElementById('sup-overlay').classList.remove('open');}
+function closeSupBg(e){if(e.target.id==='sup-overlay')closeSupMgmt();}
+
+function renderSupList(){
+  const q=(document.getElementById('sup-search').value||'').toLowerCase();
+  const map={};
+  payments.forEach(p=>{
+    if(!p.supplier)return;
+    if(!map[p.supplier])map[p.supplier]=0;
+    map[p.supplier]++;
+  });
+  let sorted=Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(q)sorted=sorted.filter(([n])=>n.toLowerCase().includes(q));
+  const container=document.getElementById('sup-list');
+  container.innerHTML='';
+  if(!sorted.length){
+    container.innerHTML='<div style="text-align:center;padding:2rem;color:#888;font-size:13px;">No suppliers found.</div>';
+    return;
+  }
+  sorted.forEach(([name,count])=>{
+    const row=document.createElement('div');
+    row.className='sup-row';
+    const inp=document.createElement('input');
+    inp.type='text';
+    inp.value=name;
+    inp.dataset.original=name;
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter')renameSup(this);});
+    const cnt=document.createElement('span');
+    cnt.className='sup-count';
+    cnt.textContent=count+' payment'+(count!==1?'s':'');
+    const btn=document.createElement('button');
+    btn.className='btn sm';
+    btn.textContent='Save';
+    btn.addEventListener('click',function(){renameSup(inp);});
+    row.appendChild(inp);
+    row.appendChild(cnt);
+    row.appendChild(btn);
+    container.appendChild(row);
+  });
+}
+
+async function renameSup(input){
+  const oldName=input.dataset.original;
+  const newName=input.value.trim();
+  if(!newName||newName===oldName){toast('No change made');return;}
+  if(!confirm('Rename "'+oldName+'" to "'+newName+'" across all payments?'))return;
+  const{error}=await db.from('payments').update({supplier:newName}).eq('supplier',oldName);
+  if(error){toast('Error renaming supplier');return;}
+  toast('✅ Renamed successfully!');
+  await loadPayments();
+  renderSupList();
 }
 
 loadPayments();
