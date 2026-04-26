@@ -132,10 +132,62 @@ tr:hover td{background:#f9f9f7;}
 .sup-count{font-size:11px;color:#888;white-space:nowrap;min-width:80px;text-align:right;}
 .toast{position:fixed;bottom:1.5rem;right:1.5rem;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
 .toast.show{opacity:1;}
-@media(max-width:600px){.field-row{grid-template-columns:1fr;}.search-row input.narrow,.search-row select.narrow{width:100%;}}
+@media(max-width:768px){
+  .app{padding:1rem 0.6rem;}
+  .topbar{gap:6px;}
+  .title{font-size:17px;}
+  .topbar > div:last-child{width:100%;justify-content:space-between;gap:5px;}
+  .topbar > div:last-child .btn{flex:1;font-size:12px;padding:8px 6px;}
+  .admin-bar{flex-direction:column;align-items:stretch;gap:6px;padding:10px;}
+  .admin-bar > span:first-child{display:none;}
+  .admin-status{flex:none;text-align:center;}
+  .admin-bar button{width:100%;padding:8px;}
+  .company-nav{flex-wrap:wrap;}
+  .company-nav button{flex:1 1 33.33%;min-width:0;font-size:11px;padding:10px 4px;border-bottom:1px solid #eee;}
+  .company-nav button:nth-child(3),.company-nav button:nth-child(6),.company-nav button:nth-child(7){border-right:none;}
+  .view-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+  .view-tab{font-size:12px;padding:9px 4px;text-align:center;}
+  .metrics{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .metric{padding:0.7rem 0.85rem;}
+  .metric-value{font-size:18px;}
+  .search-row{gap:6px;}
+  .search-row input.wide{flex:1 1 100%;min-width:0;}
+  .search-row input.narrow,.search-row select.narrow{flex:1 1 calc(50% - 3px);width:auto;}
+  .field-row{grid-template-columns:1fr;}
+  .modal{padding:1.1rem;border-radius:14px;}
+  .week-row{padding:12px 11px;gap:7px;flex-wrap:wrap;}
+  .week-row .wlabel{font-size:12px;min-width:0;}
+  .week-row .wlabel small{display:block;margin-left:0;margin-top:2px;}
+  .week-row .wcounts{flex-basis:100%;order:5;margin-top:3px;}
+  .week-row .wtotal{font-size:13px;min-width:auto;margin-left:auto;}
+  .week-row > span:last-child{display:none;}
+  .table-wrap{display:none;}
+  .mobile-cards{display:flex;flex-direction:column;gap:8px;}
+  .mcard{background:#fff;border:1px solid #eee;border-radius:12px;padding:12px;}
+  .mcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;}
+  .mcard-supplier{font-weight:600;font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mcard-amount{font-weight:700;font-size:15px;white-space:nowrap;}
+  .mcard-meta{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:11px;color:#666;margin-bottom:8px;}
+  .mcard-meta span{display:inline-flex;align-items:center;gap:3px;}
+  .mcard-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;}
+  .mcard-actions-left{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .supplier-grid{grid-template-columns:repeat(2,1fr);}
+  .sort-bar{gap:5px;}
+  .sort-opt{padding:5px 9px;font-size:11px;}
+  .sup-row{flex-wrap:wrap;}
+  .sup-row input{flex:1 1 100%;}
+  .sup-row .sup-count{font-size:11px;}
+}
+@media(min-width:769px){.mobile-cards{display:none !important;}}
+.ptr-indicator{position:fixed;top:0;left:0;right:0;height:0;background:linear-gradient(180deg,#1a1a1a 0%,transparent 100%);display:flex;align-items:flex-end;justify-content:center;color:#fff;font-size:13px;font-weight:500;overflow:hidden;transition:height 0.15s ease;z-index:100;pointer-events:none;}
+.ptr-indicator.refreshing{height:50px !important;}
+.ptr-indicator span{padding-bottom:10px;display:flex;align-items:center;gap:8px;}
+.ptr-spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:ptr-rotate 0.8s linear infinite;}
+@keyframes ptr-rotate{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
+<div class="ptr-indicator" id="ptr"><span id="ptr-text">↓ Pull to refresh</span></div>
 <div class="app">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px;">
@@ -151,7 +203,8 @@ tr:hover td{background:#f9f9f7;}
           <button onclick="doExport('all')">Export all payments</button>
         </div>
       </div>
-      <button class="btn primary" onclick="openModal()">+ Add Payment</button>
+      <button class="btn primary" onclick="openModal()" id="btn-add">+ Add Payment</button>
+      <button class="btn" onclick="toggleLang()" id="btn-lang" title="Change language" style="font-size:18px;padding:5px 10px;">🇫🇷</button>
     </div>
   </div>
   <div class="admin-bar">
@@ -189,27 +242,27 @@ tr:hover td{background:#f9f9f7;}
       <button class="sort-opt" id="sort-week" onclick="setSupSort('week')">Week</button>
     </div>
   </div>
-  <div id="main"><div class="loading">Loading payments...</div></div>
+  <div id="main"><div class="loading" id="loading-msg">Loading payments...</div></div>
 </div>
-
+ 
 <div class="modal-overlay" id="modal-overlay" onclick="closeModalBg(event)">
   <div class="modal" id="modal-content"></div>
 </div>
-
+ 
 <div class="modal-overlay" id="sup-overlay" onclick="closeSupBg(event)">
   <div class="modal" style="max-width:520px;">
-    <h3>🏷️ Manage Suppliers</h3>
-    <p style="font-size:12px;color:#888;margin-bottom:1rem;">Rename suppliers across all payments. Edit a name and click Save.</p>
+    <h3 id="sup-title">🏷️ Manage Suppliers</h3>
+    <p id="sup-desc" style="font-size:12px;color:#888;margin-bottom:1rem;">Rename suppliers across all payments. Edit a name and click Save.</p>
     <input type="text" id="sup-search" placeholder="Search suppliers..." oninput="renderSupList()" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;font-family:inherit;">
     <div id="sup-list" style="max-height:400px;overflow-y:auto;"></div>
-    <div class="modal-actions"><button class="btn" onclick="closeSupMgmt()">Close</button></div>
+    <div class="modal-actions"><button class="btn" id="sup-close-btn" onclick="closeSupMgmt()">Close</button></div>
   </div>
 </div>
-
+ 
 <div class="import-overlay" id="import-overlay" onclick="closeImportBg(event)">
   <div class="import-modal">
-    <h3>Import from Excel</h3>
-    <p>Upload your weekly Excel file — AI will read all company tables and extract every payment automatically.</p>
+    <h3 id="imp-title">Import from Excel</h3>
+    <p id="imp-desc">Upload your weekly Excel file — AI will read all company tables and extract every payment automatically.</p>
     <div class="import-drop" onclick="document.getElementById('imp-file').click()">
       <input type="file" id="imp-file" accept=".xlsx,.xls" onchange="handleImport(this)">
       <div style="font-size:2.5rem;margin-bottom:.5rem;">📊</div>
@@ -218,14 +271,14 @@ tr:hover td{background:#f9f9f7;}
     <div class="import-status" id="imp-status"></div>
     <div class="import-preview" id="imp-preview"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem;">
-      <button class="btn" onclick="closeImport()">Close</button>
+      <button class="btn" id="imp-close-btn" onclick="closeImport()">Close</button>
       <button class="btn primary" id="imp-confirm" style="display:none;" onclick="confirmImport()">Import all payments</button>
     </div>
   </div>
 </div>
-
+ 
 <div class="toast" id="toast"></div>
-
+ 
 <script>
 const SUPABASE_URL='https://gxrmyiepbcimdwbgcgvp.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4cm15aWVwYmNpbWR3YmdjZ3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjE1NTUsImV4cCI6MjA5MjU5NzU1NX0.60Aryz_rsFZh7hDO9J3klouqF1av0tpycws_HhfxYIA';
@@ -234,17 +287,17 @@ const MODEL='claude-haiku-4-5-20251001';
 const COMPANIES=['Vonston','Golden Mile','Época','BAIES','Winner Direction','Manjerico Palaciano'];
 const COLORS=['#7C3AED','#059669','#DC2626','#2563EB','#DB2777','#D97706'];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
+ 
 const {createClient}=supabase;
 const db=createClient(SUPABASE_URL,SUPABASE_KEY);
-
+ 
 const today=new Date();today.setHours(0,0,0,0);
 const ds=d=>d.toISOString().split('T')[0];
 const parseD=s=>new Date(s+'T00:00:00');
 const fmtD=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 const cc=n=>COLORS[COMPANIES.indexOf(n)%COLORS.length]||'#888';
 const euro=n=>'€'+(parseFloat(n)||0).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
-
+ 
 function getMon(s){
   let d=parseD(s),day=d.getDay(),diff=day===0?-6:1-day,m=new Date(d);
   m.setDate(d.getDate()+diff);return m;
@@ -256,26 +309,296 @@ function getWk(d){
 }
 function getMK(s){let d=parseD(s);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function fmtMK(k){let[y,m]=k.split('-');return MONTHS[parseInt(m)-1]+' '+y;}
-
+ 
+const LANG_KEY='pt_lang';
+let lang=localStorage.getItem(LANG_KEY)||'en';
+const T={
+  en:{
+    title:'Payment Tracker',
+    importExcel:'Import Excel',
+    export:'Export ↓',
+    exportCurrent:'Export current view',
+    exportAll:'Export all payments',
+    addPayment:'+ Add Payment',
+    adminLocked:'Admin locked — edit & delete disabled',
+    adminUnlocked:'Admin mode — edit & delete enabled',
+    unlock:'Unlock',
+    lock:'Lock',
+    manageSuppliers:'🏷️ Manage Suppliers',
+    byWeek:'By week',
+    byMonth:'By month',
+    byYear:'By year',
+    bySupplier:'By supplier',
+    allPayments:'All payments',
+    total:'Total',
+    overdue:'Overdue',
+    pending:'Pending',
+    paid:'Paid',
+    searchPh:'Search supplier, invoice, company...',
+    amountPh:'Amount...',
+    allWeeks:'All weeks',
+    allStatuses:'All statuses',
+    statusPaid:'Paid',
+    statusPending:'Pending',
+    statusOverdue:'Overdue',
+    sortBy:'Sort suppliers by:',
+    sortAlpha:'A → Z',
+    sortDate:'Date',
+    sortWeek:'Week',
+    loading:'Loading payments...',
+    back:'← Back',
+    week:'Wk',
+    weekFull:'Week',
+    payment:'payment',
+    payments:'payments',
+    noPayments:'No payments found.',
+    noSuppliers:'No suppliers found.',
+    weekly:'Weekly breakdown',
+    monthly:'Monthly breakdown',
+    supTotalsW:'Supplier totals this week',
+    supTotalsM:'Supplier totals this month',
+    supTotalsY:'Supplier totals this year',
+    supplier:'Supplier',
+    amount:'Amount',
+    issueDate:'Issue Date',
+    dueDate:'Due Date',
+    status:'Status',
+    invoiceNum:'Invoice #',
+    invoice:'Invoice',
+    company:'Company',
+    actions:'Actions',
+    edit:'Edit',
+    save:'Save',
+    cancel:'Cancel',
+    addPaymentTitle:'Add payment',
+    editPaymentTitle:'Edit payment',
+    aiUpload:'🤖 Upload invoice — AI will auto-fill the fields',
+    aiClick:'Click to upload invoice (PDF or image)',
+    aiReading:'Reading invoice with AI...',
+    aiSuccess:'✅ Invoice read successfully!',
+    aiFail:'Could not read automatically — please fill manually.',
+    invoiceNumber:'Invoice number',
+    amountField:'Amount (€)',
+    supplierField:'Supplier',
+    supplierPh:'Supplier name',
+    notes:'Notes',
+    invoiceLink:'Invoice Link (Google Drive / URL)',
+    payMonday:'Payment Monday:',
+    fillRequired:'Please fill Company and Due Date',
+    paymentAdded:'Payment added!',
+    paymentUpdated:'Payment updated!',
+    saveError:'Error saving — please try again',
+    paymentDeleted:'Payment deleted',
+    deleteError:'Error deleting',
+    deleteConfirm:'Delete this payment? This cannot be undone.',
+    adminRequired:'Admin access required',
+    enterPw:'Enter admin password:',
+    wrongPw:'Incorrect password.',
+    adminEnabled:'Admin mode enabled',
+    statusUpdated:'Status updated',
+    importTitle:'Import from Excel',
+    importDesc:'Upload your weekly Excel file — AI will read all company tables and extract every payment automatically.',
+    importClick:'Click to upload Excel file (.xlsx)',
+    importReading:'Reading Excel file...',
+    importAI:'AI is reading the data...',
+    importFound:'Found',
+    importReview:'payments — review and confirm:',
+    importBtn:'Import all payments',
+    importing:'Importing...',
+    importDone:'Imported',
+    importFail:'Could not read file. Please try again.',
+    close:'Close',
+    manageTitle:'🏷️ Manage Suppliers',
+    manageDesc:'Rename suppliers across all payments. Edit a name and click Save.',
+    searchSupPh:'Search suppliers...',
+    renameConfirm:'Rename "{0}" to "{1}" across all payments?',
+    renameSuccess:'✅ Renamed successfully!',
+    renameError:'Error renaming supplier',
+    noChange:'No change made',
+    pullRefresh:'↓ Pull to refresh',
+    releaseRefresh:'↑ Release to refresh',
+    refreshing:'Refreshing...',
+    loadError:'Error loading'
+  },
+  fr:{
+    title:'Suivi des Paiements',
+    importExcel:'Importer Excel',
+    export:'Exporter ↓',
+    exportCurrent:'Exporter la vue actuelle',
+    exportAll:'Exporter tous les paiements',
+    addPayment:'+ Ajouter Paiement',
+    adminLocked:'Admin verrouillé — modification désactivée',
+    adminUnlocked:'Mode admin — modification activée',
+    unlock:'Déverrouiller',
+    lock:'Verrouiller',
+    manageSuppliers:'🏷️ Gérer Fournisseurs',
+    byWeek:'Par semaine',
+    byMonth:'Par mois',
+    byYear:'Par année',
+    bySupplier:'Par fournisseur',
+    allPayments:'Tous les paiements',
+    total:'Total',
+    overdue:'En retard',
+    pending:'En attente',
+    paid:'Payé',
+    searchPh:'Rechercher fournisseur, facture, société...',
+    amountPh:'Montant...',
+    allWeeks:'Toutes les semaines',
+    allStatuses:'Tous les statuts',
+    statusPaid:'Payé',
+    statusPending:'En attente',
+    statusOverdue:'En retard',
+    sortBy:'Trier les fournisseurs par :',
+    sortAlpha:'A → Z',
+    sortDate:'Date',
+    sortWeek:'Semaine',
+    loading:'Chargement des paiements...',
+    back:'← Retour',
+    week:'Sem',
+    weekFull:'Semaine',
+    payment:'paiement',
+    payments:'paiements',
+    noPayments:'Aucun paiement trouvé.',
+    noSuppliers:'Aucun fournisseur trouvé.',
+    weekly:'Répartition hebdomadaire',
+    monthly:'Répartition mensuelle',
+    supTotalsW:'Totaux fournisseurs cette semaine',
+    supTotalsM:'Totaux fournisseurs ce mois',
+    supTotalsY:'Totaux fournisseurs cette année',
+    supplier:'Fournisseur',
+    amount:'Montant',
+    issueDate:'Date d\'émission',
+    dueDate:'Échéance',
+    status:'Statut',
+    invoiceNum:'N° Facture',
+    invoice:'Facture',
+    company:'Société',
+    actions:'Actions',
+    edit:'Modifier',
+    save:'Enregistrer',
+    cancel:'Annuler',
+    addPaymentTitle:'Ajouter un paiement',
+    editPaymentTitle:'Modifier le paiement',
+    aiUpload:'🤖 Téléverser facture — IA remplira automatiquement',
+    aiClick:'Cliquer pour téléverser facture (PDF ou image)',
+    aiReading:'Lecture de la facture par IA...',
+    aiSuccess:'✅ Facture lue avec succès !',
+    aiFail:'Impossible de lire — veuillez remplir manuellement.',
+    invoiceNumber:'Numéro de facture',
+    amountField:'Montant (€)',
+    supplierField:'Fournisseur',
+    supplierPh:'Nom du fournisseur',
+    notes:'Notes',
+    invoiceLink:'Lien Facture (Google Drive / URL)',
+    payMonday:'Lundi de paiement :',
+    fillRequired:'Veuillez remplir Société et Échéance',
+    paymentAdded:'Paiement ajouté !',
+    paymentUpdated:'Paiement mis à jour !',
+    saveError:'Erreur — veuillez réessayer',
+    paymentDeleted:'Paiement supprimé',
+    deleteError:'Erreur de suppression',
+    deleteConfirm:'Supprimer ce paiement ? Cette action est irréversible.',
+    adminRequired:'Accès admin requis',
+    enterPw:'Entrez le mot de passe admin :',
+    wrongPw:'Mot de passe incorrect.',
+    adminEnabled:'Mode admin activé',
+    statusUpdated:'Statut mis à jour',
+    importTitle:'Importer depuis Excel',
+    importDesc:'Téléversez votre fichier Excel — l\'IA lira tous les tableaux et extraira chaque paiement automatiquement.',
+    importClick:'Cliquer pour téléverser un fichier Excel (.xlsx)',
+    importReading:'Lecture du fichier Excel...',
+    importAI:'L\'IA lit les données...',
+    importFound:'Trouvé',
+    importReview:'paiements — vérifier et confirmer :',
+    importBtn:'Importer tous les paiements',
+    importing:'Importation...',
+    importDone:'Importé',
+    importFail:'Impossible de lire le fichier. Réessayez.',
+    close:'Fermer',
+    manageTitle:'🏷️ Gérer les Fournisseurs',
+    manageDesc:'Renommer les fournisseurs dans tous les paiements. Modifiez et cliquez Enregistrer.',
+    searchSupPh:'Rechercher fournisseurs...',
+    renameConfirm:'Renommer "{0}" en "{1}" dans tous les paiements ?',
+    renameSuccess:'✅ Renommé avec succès !',
+    renameError:'Erreur de renommage',
+    noChange:'Aucun changement',
+    pullRefresh:'↓ Tirer pour rafraîchir',
+    releaseRefresh:'↑ Relâcher pour rafraîchir',
+    refreshing:'Rafraîchissement...',
+    loadError:'Erreur de chargement'
+  }
+};
+const t=k=>(T[lang]&&T[lang][k])||T.en[k]||k;
+ 
+function toggleLang(){
+  lang=lang==='en'?'fr':'en';
+  localStorage.setItem(LANG_KEY,lang);
+  applyLang();
+  renderCurrent();
+}
+ 
+function applyLang(){
+  document.title=t('title');
+  document.getElementById('page-title').textContent=t('title');
+  document.getElementById('btn-lang').textContent=lang==='en'?'🇫🇷':'🇬🇧';
+  document.getElementById('btn-add').textContent=t('addPayment');
+  // Topbar buttons
+  const tb=document.querySelectorAll('.topbar .btn');
+  tb.forEach(b=>{
+    if(b.textContent.trim().startsWith('Import')||b.textContent.trim().startsWith('Importer'))b.textContent=t('importExcel');
+    if(b.textContent.trim().startsWith('Export')||b.textContent.trim().startsWith('Exporter'))b.textContent=t('export');
+  });
+  // Export dropdown
+  const dd=document.querySelectorAll('#export-dropdown button');
+  if(dd[0])dd[0].textContent=t('exportCurrent');
+  if(dd[1])dd[1].textContent=t('exportAll');
+  // Back btn
+  document.getElementById('back-btn').textContent=t('back');
+  // View tabs
+  const vt=document.querySelectorAll('.view-tab');
+  const vtKeys=['byWeek','byMonth','byYear','bySupplier','allPayments'];
+  vt.forEach((b,i)=>{if(vtKeys[i])b.textContent=t(vtKeys[i]);});
+  // Search row
+  const q=document.getElementById('q');if(q)q.placeholder=t('searchPh');
+  const qa=document.getElementById('qamt');if(qa)qa.placeholder=t('amountPh');
+  const qw=document.getElementById('qweek');if(qw&&qw.options[0])qw.options[0].textContent=t('allWeeks');
+  const qs=document.getElementById('qstatus');if(qs){
+    if(qs.options[0])qs.options[0].textContent=t('allStatuses');
+    if(qs.options[1])qs.options[1].textContent=t('statusPaid');
+    if(qs.options[2])qs.options[2].textContent=t('statusPending');
+    if(qs.options[3])qs.options[3].textContent=t('statusOverdue');
+  }
+  // Sort bar
+  const sb=document.querySelector('.sort-bar span');if(sb)sb.textContent=t('sortBy');
+  const sa=document.getElementById('sort-alpha');if(sa)sa.textContent=t('sortAlpha');
+  const sd=document.getElementById('sort-date');if(sd)sd.textContent=t('sortDate');
+  const sw=document.getElementById('sort-week');if(sw)sw.textContent=t('sortWeek');
+  // Admin
+  updateAdminUI();
+  // PTR text
+  const pt=document.getElementById('ptr-text');if(pt&&!pt.querySelector('.ptr-spin'))pt.textContent=t('pullRefresh');
+}
+ 
 let payments=[],editId=null,pendingFile=null,importedRows=[];
 let activeCompany='All',activeView='weeks',drillKey=null,isAdmin=false,supSort='alpha';
-
+ 
 function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),3000);
 }
-
+ 
 async function callClaude(body){
   const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const data=await res.json();
   if(data.error)throw new Error(JSON.stringify(data.error));
   return data;
 }
-
+ 
 async function loadPayments(){
+  const lm=document.getElementById('loading-msg');if(lm)lm.textContent=t('loading');
   const {data,error}=await db.from('payments').select('*').order('due_date',{ascending:true});
-  if(error){console.error(error);toast('Error loading');return;}
+  if(error){console.error(error);toast(t('loadError'));return;}
   payments=data.map(p=>({
     id:p.id,company:p.company||'',invoice:p.invoice||'',
     supplier:p.supplier||'',amount:parseFloat(p.amount)||0,
@@ -286,7 +609,7 @@ async function loadPayments(){
   }));
   buildWkOpts();renderNav();renderCurrent();
 }
-
+ 
 async function dbSave(p,id){
   const row={
     company:p.company,invoice:p.invoice,supplier:p.supplier,
@@ -298,16 +621,16 @@ async function dbSave(p,id){
   if(id){const{error}=await db.from('payments').update(row).eq('id',id);return!error;}
   else{const{error}=await db.from('payments').insert(row);return!error;}
 }
-
+ 
 async function dbDelete(id){
   const{error}=await db.from('payments').delete().eq('id',id);return!error;
 }
-
+ 
 async function dbStatus(id,status){
   const{error}=await db.from('payments').update({status}).eq('id',id);
-  if(!error){const p=payments.find(x=>x.id===id);if(p)p.status=status;renderCurrent();toast('Status updated');}
+  if(!error){const p=payments.find(x=>x.id===id);if(p)p.status=status;renderCurrent();toast(t('statusUpdated'));}
 }
-
+ 
 function src(){
   let s=activeCompany==='All'?[...payments]:payments.filter(p=>p.company===activeCompany);
   const q=(document.getElementById('q')||{}).value||'';
@@ -322,7 +645,7 @@ function src(){
   if(qs)s=s.filter(p=>p.status===qs);
   return s;
 }
-
+ 
 function buildWkOpts(){
   const map={};
   payments.forEach(p=>{if(!p.due)return;try{const m=getMon(p.due),k=ds(m);map[k]={wk:getWk(m),mon:m};}catch(e){}});
@@ -333,7 +656,7 @@ function buildWkOpts(){
       '<option value="'+k+'">Week '+v.wk+' — '+fmtD(v.mon)+'</option>').join('');
   sel.value=cur;
 }
-
+ 
 function wkGroups(list){
   const g={};
   list.forEach(p=>{
@@ -344,19 +667,19 @@ function wkGroups(list){
   });
   return g;
 }
-
+ 
 function mGroups(list){
   const g={};
   list.forEach(p=>{if(!p.due)return;const k=getMK(p.due);if(!g[k])g[k]={payments:[]};g[k].payments.push(p);});
   return g;
 }
-
+ 
 function yGroups(list){
   const g={};
   list.forEach(p=>{if(!p.due)return;const k=p.due.substring(0,4);if(!g[k])g[k]={payments:[]};g[k].payments.push(p);});
   return g;
 }
-
+ 
 const thisMon=getMon(ds(today));
 function pillCls(mon,pmts){
   if(!mon||isNaN(mon.getTime()))return 'past';
@@ -366,7 +689,7 @@ function pillCls(mon,pmts){
   if(ip)return 'past';
   return 'future';
 }
-
+ 
 function renderNav(){
   document.getElementById('company-nav').innerHTML=
     ['All',...COMPANIES].map(c=>{
@@ -374,9 +697,9 @@ function renderNav(){
       return '<button class="'+(activeCompany===c?'active':'')+'" onclick="setCompany(\''+c.replace(/'/g,"\\'")+'\')">'+dot+c+'</button>';
     }).join('');
 }
-
+ 
 function setCompany(c){activeCompany=c;drillKey=null;document.getElementById('back-btn').style.display='none';document.getElementById('page-title').textContent='Payment Tracker';renderCurrent();}
-
+ 
 function setView(v){
   activeView=v;drillKey=null;
   document.getElementById('back-btn').style.display='none';
@@ -385,25 +708,25 @@ function setView(v){
   document.getElementById('supplier-sort-bar').style.display=v==='suppliers'?'block':'none';
   renderCurrent();
 }
-
+ 
 function setSupSort(s){
   supSort=s;
   ['alpha','date','week'].forEach(k=>{const el=document.getElementById('sort-'+k);if(el)el.classList.toggle('active',k===s);});
   renderSuppliers();
 }
-
+ 
 function renderMetrics(list){
   const total=list.reduce((s,p)=>s+p.amount,0);
   const ov=list.filter(p=>p.status==='overdue').reduce((s,p)=>s+p.amount,0);
   const pe=list.filter(p=>p.status==='pending').reduce((s,p)=>s+p.amount,0);
   const pa=list.filter(p=>p.status==='paid').reduce((s,p)=>s+p.amount,0);
   document.getElementById('metrics').innerHTML=
-    '<div class="metric"><div class="metric-label">Total</div><div class="metric-value">'+euro(total)+'</div></div>'+
-    '<div class="metric"><div class="metric-label">Overdue</div><div class="metric-value danger">'+euro(ov)+'</div></div>'+
-    '<div class="metric"><div class="metric-label">Pending</div><div class="metric-value warning">'+euro(pe)+'</div></div>'+
-    '<div class="metric"><div class="metric-label">Paid</div><div class="metric-value success">'+euro(pa)+'</div></div>';
+    '<div class="metric"><div class="metric-label">'+t('total')+'</div><div class="metric-value">'+euro(total)+'</div></div>'+
+    '<div class="metric"><div class="metric-label">'+t('overdue')+'</div><div class="metric-value danger">'+euro(ov)+'</div></div>'+
+    '<div class="metric"><div class="metric-label">'+t('pending')+'</div><div class="metric-value warning">'+euro(pe)+'</div></div>'+
+    '<div class="metric"><div class="metric-label">'+t('paid')+'</div><div class="metric-value success">'+euro(pa)+'</div></div>';
 }
-
+ 
 function renderCurrent(){
   renderNav();buildWkOpts();
   const list=src();renderMetrics(list);
@@ -415,18 +738,18 @@ function renderCurrent(){
   else if(activeView==='suppliers')renderSuppliers(list);
   else renderTable(list);
 }
-
+ 
 function renderDrill(list){
   const g=activeView==='weeks'?wkGroups(list)[drillKey]:activeView==='years'?yGroups(list)[drillKey]:mGroups(list)[drillKey];
   if(!g){goBack();return;}
   renderTable(g.payments);
-  renderSupBreakdown(g.payments,activeView==='weeks'?'Supplier totals this week':activeView==='years'?'Supplier totals this year':'Supplier totals this month');
+  renderSupBreakdown(g.payments,activeView==='weeks'?t('supTotalsW'):activeView==='years'?t('supTotalsY'):t('supTotalsM'));
 }
-
+ 
 function renderWeeks(list){
   const g=wkGroups(list);
   const keys=Object.keys(g).sort((a,b)=>b.localeCompare(a));
-  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
+  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">'+t('noPayments')+'</div>';return;}
   document.getElementById('main').innerHTML=keys.map(k=>{
     const{mon,wk,payments:ps}=g[k];
     const pc=pillCls(mon,ps);
@@ -436,21 +759,21 @@ function renderWeeks(list){
     const over=ps.filter(p=>p.status==='overdue').length;
     return '<div class="week-row'+(pc==='now'?' current':'')+'" onclick="drillWeek(\''+k+'\')">'
       +'<span class="wpill '+pc+'">Wk '+wk+(pc==='now'?' ★':'')+'</span>'
-      +'<div class="wlabel">'+fmtD(mon)+'<small>'+ps.length+' payment'+(ps.length!==1?'s':'')+'</small></div>'
+      +'<div class="wlabel">'+fmtD(mon)+'<small>'+ps.length+' '+(ps.length!==1?t('payments'):t('payment'))+'</small></div>'
       +'<div class="wcounts">'
-      +(paid?'<span class="wc paid">'+paid+' paid</span>':'')
-      +(pend?'<span class="wc pending">'+pend+' pending</span>':'')
-      +(over?'<span class="wc overdue">'+over+' overdue</span>':'')
+      +(paid?'<span class="wc paid">'+paid+' '+t('paid').toLowerCase()+'</span>':'')
+      +(pend?'<span class="wc pending">'+pend+' '+t('pending').toLowerCase()+'</span>':'')
+      +(over?'<span class="wc overdue">'+over+' '+t('overdue').toLowerCase()+'</span>':'')
       +'</div>'
       +'<div class="wtotal">'+euro(total)+'</div>'
       +'<span style="color:#ccc;font-size:18px;">›</span></div>';
   }).join('');
 }
-
+ 
 function renderMonths(list){
   const g=mGroups(list);
   const keys=Object.keys(g).sort((a,b)=>b.localeCompare(a));
-  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
+  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">'+t('noPayments')+'</div>';return;}
   document.getElementById('main').innerHTML=keys.map(k=>{
     const{payments:ps}=g[k];
     const total=ps.reduce((s,p)=>s+p.amount,0);
@@ -465,19 +788,19 @@ function renderMonths(list){
       +'<span class="wpill '+pc+'">'+fmtMK(k)+'</span>'
       +'<div class="wlabel" style="flex:1;"></div>'
       +'<div class="wcounts">'
-      +(paid?'<span class="wc paid">'+paid+' paid</span>':'')
-      +(pend?'<span class="wc pending">'+pend+' pending</span>':'')
-      +(over?'<span class="wc overdue">'+over+' overdue</span>':'')
+      +(paid?'<span class="wc paid">'+paid+' '+t('paid').toLowerCase()+'</span>':'')
+      +(pend?'<span class="wc pending">'+pend+' '+t('pending').toLowerCase()+'</span>':'')
+      +(over?'<span class="wc overdue">'+over+' '+t('overdue').toLowerCase()+'</span>':'')
       +'</div>'
       +'<div class="wtotal">'+euro(total)+'</div>'
       +'<span style="color:#ccc;font-size:18px;">›</span></div>';
   }).join('');
 }
-
+ 
 function renderYears(list){
   const g=yGroups(list);
   const keys=Object.keys(g).sort((a,b)=>b.localeCompare(a));
-  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
+  if(!keys.length){document.getElementById('main').innerHTML='<div class="empty">'+t('noPayments')+'</div>';return;}
   const curY=String(today.getFullYear());
   document.getElementById('main').innerHTML=keys.map(k=>{
     const{payments:ps}=g[k];
@@ -490,15 +813,15 @@ function renderYears(list){
       +'<span class="wpill '+pc+'">'+k+(pc==='now'?' ★':'')+'</span>'
       +'<div class="wlabel" style="flex:1;"></div>'
       +'<div class="wcounts">'
-      +(paid?'<span class="wc paid">'+paid+' paid</span>':'')
-      +(pend?'<span class="wc pending">'+pend+' pending</span>':'')
-      +(over?'<span class="wc overdue">'+over+' overdue</span>':'')
+      +(paid?'<span class="wc paid">'+paid+' '+t('paid').toLowerCase()+'</span>':'')
+      +(pend?'<span class="wc pending">'+pend+' '+t('pending').toLowerCase()+'</span>':'')
+      +(over?'<span class="wc overdue">'+over+' '+t('overdue').toLowerCase()+'</span>':'')
       +'</div>'
       +'<div class="wtotal">'+euro(total)+'</div>'
       +'<span style="color:#ccc;font-size:18px;">›</span></div>';
   }).join('');
 }
-
+ 
 function renderSuppliers(list){
   if(!list)list=src();
   const map={};
@@ -522,19 +845,19 @@ function renderSuppliers(list){
     if(!wkMap[p.supplier])wkMap[p.supplier]={};wkMap[p.supplier][wk]=(wkMap[p.supplier][wk]||0)+p.amount;
     if(!moMap[p.supplier])moMap[p.supplier]={};moMap[p.supplier][mo]=(moMap[p.supplier][mo]||0)+p.amount;}catch(e){}
   });
-  if(!sorted.length){document.getElementById('main').innerHTML='<div class="empty">No suppliers found.</div>';return;}
+  if(!sorted.length){document.getElementById('main').innerHTML='<div class="empty">'+t('noSuppliers')+'</div>';return;}
   document.getElementById('main').innerHTML=
     '<div class="supplier-grid">'+sorted.map(([n,d])=>
       '<div class="supplier-card"><div class="supplier-name">'+n+'</div><div class="supplier-amt">'+euro(d.total)+'</div>'
       +'<div class="supplier-meta">'+d.count+' payment'+(d.count!==1?'s':'')+' · '+euro(d.paid)+' paid</div></div>').join('')+'</div>'
-    +'<div class="section-label">Weekly breakdown</div>'
-    +'<div class="table-wrap"><table><thead><tr><th>Supplier</th>'+allWks.map(k=>'<th style="text-align:right">Wk '+getWk(parseD(k))+'</th>').join('')+'<th style="text-align:right">Total</th></tr></thead>'
+    +'<div class="section-label">'+t('weekly')+'</div>'
+    +'<div class="table-wrap"><table><thead><tr><th>Supplier</th>'+allWks.map(k=>'<th style="text-align:right">'+t('week')+' '+getWk(parseD(k))+'</th>').join('')+'<th style="text-align:right">Total</th></tr></thead>'
     +'<tbody>'+sorted.map(([n])=>'<tr><td>'+n+'</td>'+allWks.map(w=>'<td style="text-align:right">'+(wkMap[n]&&wkMap[n][w]?euro(wkMap[n][w]):'-')+'</td>').join('')+'<td style="text-align:right;font-weight:600">'+euro(map[n].total)+'</td></tr>').join('')+'</tbody></table></div>'
-    +'<div class="section-label">Monthly breakdown</div>'
+    +'<div class="section-label">'+t('monthly')+'</div>'
     +'<div class="table-wrap"><table><thead><tr><th>Supplier</th>'+allMos.map(k=>'<th style="text-align:right">'+fmtMK(k)+'</th>').join('')+'<th style="text-align:right">Total</th></tr></thead>'
     +'<tbody>'+sorted.map(([n])=>'<tr><td>'+n+'</td>'+allMos.map(m=>'<td style="text-align:right">'+(moMap[n]&&moMap[n][m]?euro(moMap[n][m]):'-')+'</td>').join('')+'<td style="text-align:right;font-weight:600">'+euro(map[n].total)+'</td></tr>').join('')+'</tbody></table></div>';
 }
-
+ 
 function renderSupBreakdown(list,label){
   const map={};
   list.forEach(p=>{if(!map[p.supplier])map[p.supplier]={total:0,count:0};map[p.supplier].total+=p.amount;map[p.supplier].count++;});
@@ -543,15 +866,16 @@ function renderSupBreakdown(list,label){
     +'<div class="supplier-grid">'+sorted.map(([n,d])=>
       '<div class="supplier-card"><div class="supplier-name">'+n+'</div><div class="supplier-amt">'+euro(d.total)+'</div><div class="supplier-meta">'+d.count+' payment'+(d.count!==1?'s':'')+'</div></div>').join('')+'</div>';
 }
-
+ 
 function renderTable(list){
   const showCo=activeCompany==='All';
-  if(!list.length){document.getElementById('main').innerHTML='<div class="empty">No payments found.</div>';return;}
-  document.getElementById('main').innerHTML='<div class="table-wrap"><table><thead><tr>'
-    +'<th>Supplier</th><th>Amount</th><th>Issue Date</th><th>Due Date</th><th>Week</th>'
-    +'<th>Status</th><th>Invoice #</th><th>Invoice</th>'
-    +(showCo?'<th>Company</th>':'')
-    +'<th>Actions</th></tr></thead><tbody>'
+  if(!list.length){document.getElementById('main').innerHTML='<div class="empty">'+t('noPayments')+'</div>';return;}
+  // Desktop table
+  const tableHtml='<div class="table-wrap"><table><thead><tr>'
+    +'<th>'+t('supplier')+'</th><th>'+t('amount')+'</th><th>'+t('issueDate')+'</th><th>'+t('dueDate')+'</th><th>'+t('weekFull')+'</th>'
+    +'<th>'+t('status')+'</th><th>'+t('invoiceNum')+'</th><th>'+t('invoice')+'</th>'
+    +(showCo?'<th>'+t('company')+'</th>':'')
+    +'<th>'+t('actions')+'</th></tr></thead><tbody>'
     +list.map(p=>{
       const wn=p.due?getWk(getMon(p.due)):'—';
       const invCell=p.invoiceLink
@@ -560,14 +884,14 @@ function renderTable(list){
           ?'<span style="font-size:11px;color:#888;" title="'+p.fileName+'">📎 '+p.fileName.substring(0,10)+'...</span>'
           :'<span style="color:#ccc;font-size:11px;">—</span>';
       const actions=isAdmin
-        ?'<button class="btn sm" onclick="openModal('+p.id+')" style="margin-right:4px;">Edit</button><button class="btn sm danger" onclick="delPayment('+p.id+')" title="Delete">🗑️</button>'
+        ?'<button class="btn sm" onclick="openModal('+p.id+')" style="margin-right:4px;">'+t('edit')+'</button><button class="btn sm danger" onclick="delPayment('+p.id+')" title="Delete">🗑️</button>'
         :'<span style="color:#ccc;">🔒</span>';
       return '<tr>'
         +'<td title="'+p.supplier+'">'+p.supplier+'</td>'
         +'<td style="font-weight:600;">'+euro(p.amount)+'</td>'
         +'<td style="color:#888;">'+(p.issueDate||'—')+'</td>'
         +'<td>'+(p.due||'—')+'</td>'
-        +'<td style="color:#888;">Wk '+wn+'</td>'
+        +'<td style="color:#888;">'+t('week')+' '+wn+'</td>'
         +'<td><span class="badge '+p.status+'" onclick="showStatusMenu(event,'+p.id+')" title="Click to change">'+p.status+' ▾</span></td>'
         +'<td style="font-family:monospace;font-size:12px;" title="'+p.invoice+'">'+(p.invoice||'—')+'</td>'
         +'<td>'+invCell+'</td>'
@@ -575,8 +899,41 @@ function renderTable(list){
         +'<td style="white-space:nowrap;">'+actions+'</td>'
         +'</tr>';
     }).join('')+'</tbody></table></div>';
+  // Mobile cards
+  const cardsHtml='<div class="mobile-cards">'+list.map(p=>{
+    const wn=p.due?getWk(getMon(p.due)):'—';
+    const invBtn=p.invoiceLink
+      ?'<a href="'+p.invoiceLink+'" target="_blank" style="color:#2563eb;font-size:11px;font-weight:500;text-decoration:none;padding:3px 9px;border:1px solid #bfdbfe;border-radius:6px;background:#eff6ff;">🔗 Invoice</a>'
+      :p.fileName
+        ?'<span style="font-size:11px;color:#888;">📎 '+p.fileName.substring(0,12)+'...</span>'
+        :'';
+    const coTag=showCo?'<span><span class="cdot" style="background:'+cc(p.company)+'"></span>'+p.company+'</span>':'';
+    const actions=isAdmin
+      ?'<button class="btn sm" onclick="openModal('+p.id+')">'+t('edit')+'</button><button class="btn sm danger" onclick="delPayment('+p.id+')">🗑️</button>'
+      :'';
+    return '<div class="mcard">'
+      +'<div class="mcard-top">'
+      +'<div class="mcard-supplier">'+p.supplier+'</div>'
+      +'<div class="mcard-amount">'+euro(p.amount)+'</div>'
+      +'</div>'
+      +'<div class="mcard-meta">'
+      +'<span>📅 '+t('dueDate')+': '+(p.due||'\u2014')+'</span>'
+      +'<span>'+t('week')+' '+wn+'</span>'
+      +(p.invoice?'<span>#'+p.invoice+'</span>':'')
+      +coTag
+      +'</div>'
+      +'<div class="mcard-actions">'
+      +'<div class="mcard-actions-left">'
+      +'<span class="badge '+p.status+'" onclick="showStatusMenu(event,'+p.id+')">'+p.status+' ▾</span>'
+      +invBtn
+      +'</div>'
+      +'<div style="display:flex;gap:6px;">'+actions+'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('')+'</div>';
+  document.getElementById('main').innerHTML=tableHtml+cardsHtml;
 }
-
+ 
 function drillYear(k){
   drillKey=k;activeView='years';
   const g=yGroups(src())[k];
@@ -596,7 +953,7 @@ function drillMonth(k){
   document.getElementById('main').innerHTML='';renderDrill(src());
 }
 function goBack(){drillKey=null;document.getElementById('back-btn').style.display='none';document.getElementById('page-title').textContent='Payment Tracker';renderCurrent();}
-
+ 
 function showStatusMenu(e,id){
   e.stopPropagation();
   document.querySelectorAll('.status-popup').forEach(el=>el.remove());
@@ -604,65 +961,65 @@ function showStatusMenu(e,id){
   p.style.cssText='top:'+e.clientY+'px;left:'+(e.clientX-60)+'px;';
   ['paid','pending','overdue'].forEach(s=>{
     const b=document.createElement('button');
-    b.textContent=s.charAt(0).toUpperCase()+s.slice(1);
+    b.textContent=t('status'+s.charAt(0).toUpperCase()+s.slice(1));
     b.onclick=ev=>{ev.stopPropagation();dbStatus(id,s);p.remove();};
     p.appendChild(b);
   });
   document.body.appendChild(p);
   setTimeout(()=>document.addEventListener('click',()=>p.remove(),{once:true}),10);
 }
-
+ 
 function openModal(id=null){
   editId=id;pendingFile=null;
   const p=id?payments.find(x=>x.id===id):null;
   const sv=p?p.status:'pending';
   document.getElementById('modal-content').innerHTML=
-    '<h3>'+(id?'Edit payment':'Add payment')+'</h3>'
-    +'<div class="ai-box"><p>🤖 Upload invoice — AI will auto-fill the fields</p>'
+    '<h3>'+(id?t('editPaymentTitle'):t('addPaymentTitle'))+'</h3>'
+    +'<div class="ai-box"><p>'+t('aiUpload')+'</p>'
     +'<div class="upload-area" onclick="document.getElementById(\'inv-file\').click()">'
     +'<input type="file" id="inv-file" accept=".pdf,.jpg,.jpeg,.png" onchange="handleInvoice(this)">'
-    +'Click to upload invoice (PDF or image)</div>'
+    +t('aiClick')+'</div>'
     +'<div class="ai-status" id="ai-status"></div></div>'
-    +'<div class="field"><label>Company</label><select id="f-co">'+COMPANIES.map(c=>'<option'+(p&&p.company===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'
+    +'<div class="field"><label>'+t('company')+'</label><select id="f-co">'+COMPANIES.map(c=>'<option'+(p&&p.company===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'
     +'<div class="field-row">'
-    +'<div class="field"><label>Invoice number</label><input id="f-inv" value="'+(p?p.invoice:'')+'" placeholder="INV-0001"></div>'
-    +'<div class="field"><label>Amount (€)</label><input id="f-amt" type="number" step="0.01" value="'+(p?p.amount:'')+'" placeholder="0.00"></div></div>'
-    +'<div class="field"><label>Supplier</label><input id="f-sup" value="'+(p?p.supplier:'')+'" placeholder="Supplier name"></div>'
+    +'<div class="field"><label>'+t('invoiceNumber')+'</label><input id="f-inv" value="'+(p?p.invoice:'')+'" placeholder="INV-0001"></div>'
+    +'<div class="field"><label>'+t('amountField')+'</label><input id="f-amt" type="number" step="0.01" value="'+(p?p.amount:'')+'" placeholder="0.00"></div></div>'
+    +'<div class="field"><label>'+t('supplierField')+'</label><input id="f-sup" value="'+(p?p.supplier:'')+'" placeholder="'+t('supplierPh')+'"></div>'
     +'<div class="field-row">'
-    +'<div class="field"><label>Issue Date</label><input id="f-iss" type="date" value="'+(p&&p.issueDate?p.issueDate:'')+'"></div>'
-    +'<div class="field"><label>Due Date</label><input id="f-due" type="date" value="'+(p?p.due:ds(today))+'" oninput="updateHint()"></div></div>'
+    +'<div class="field"><label>'+t('issueDate')+'</label><input id="f-iss" type="date" value="'+(p&&p.issueDate?p.issueDate:'')+'"></div>'
+    +'<div class="field"><label>'+t('dueDate')+'</label><input id="f-due" type="date" value="'+(p?p.due:ds(today))+'" oninput="updateHint()"></div></div>'
     +'<div class="hint" id="mon-hint"></div>'
-    +'<div class="field"><label>Status</label><div class="status-picker">'
+    +'<div class="field"><label>'+t('status')+'</label><div class="status-picker">'
     +['paid','pending','overdue'].map(s=>'<button type="button" class="spick'+(sv===s?' active '+s:'')+'" onclick="pickSt(\''+s+'\')">'+s.charAt(0).toUpperCase()+s.slice(1)+'</button>').join('')
     +'</div><input type="hidden" id="f-st" value="'+sv+'"></div>'
     +(p&&p.fileName?'<div style="font-size:12px;color:#2563eb;margin-bottom:8px;">📎 '+p.fileName+'</div>':'')
-    +'<div class="field"><label>Notes</label><textarea id="f-notes">'+(p?p.notes||'':'')+'</textarea></div>'
-    +'<div class="field"><label>Invoice Link (Google Drive / URL)</label><input id="f-link" type="url" value="'+(p&&p.invoiceLink?p.invoiceLink:'')+'" placeholder="https://drive.google.com/..."></div>'
+    +'<div class="field"><label>'+t('notes')+'</label><textarea id="f-notes">'+(p?p.notes||'':'')+'</textarea></div>'
+    +'<div class="field"><label>'+t('invoiceLink')+'</label><input id="f-link" type="url" value="'+(p&&p.invoiceLink?p.invoiceLink:'')+'" placeholder="https://drive.google.com/..."></div>'
     +'<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="savePayment()">Save</button></div>';
   document.getElementById('modal-overlay').classList.add('open');
   updateHint();
 }
-
+ 
 function pickSt(s){
   document.getElementById('f-st').value=s;
   document.querySelectorAll('.spick').forEach(b=>{const m=b.textContent.toLowerCase()===s;b.className='spick'+(m?' active '+s:'');});
 }
-
+ 
 function updateHint(){
   const el=document.getElementById('f-due');if(!el)return;
   const h=document.getElementById('mon-hint');if(!h)return;
   if(!el.value){h.textContent='';return;}
   try{const m=getMon(el.value);h.textContent='Payment Monday: '+fmtD(m)+' — Week '+getWk(m);}catch(e){}
 }
-
+ 
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');editId=null;pendingFile=null;}
 function closeModalBg(e){if(e.target.id==='modal-overlay')closeModal();}
-
+ 
 async function handleInvoice(input){
   const file=input.files[0];if(!file)return;
   pendingFile={file,name:file.name};
   const st=document.getElementById('ai-status');
-  st.textContent='Reading invoice with AI...';
+  st.textContent=t('aiReading');
   try{
     const b64=await new Promise((res,rej)=>{
       const r=new FileReader();
@@ -691,17 +1048,17 @@ async function handleInvoice(input){
     if(inv.amount&&document.getElementById('f-amt'))document.getElementById('f-amt').value=inv.amount;
     if(inv.issue_date&&document.getElementById('f-iss'))document.getElementById('f-iss').value=inv.issue_date;
     if(inv.due_date&&document.getElementById('f-due')){document.getElementById('f-due').value=inv.due_date;updateHint();}
-    st.textContent='✅ Invoice read successfully!';
+    st.textContent=t('aiSuccess');
   }catch(err){
     console.error(err);
-    st.textContent='Could not read automatically — please fill manually.';
+    st.textContent=t('aiFail');
   }
 }
-
+ 
 async function savePayment(){
   const co=document.getElementById('f-co').value;
   const due=document.getElementById('f-due').value;
-  if(!co||!due){toast('Please fill Company and Due Date');return;}
+  if(!co||!due){toast(t('fillRequired'));return;}
   const p={
     company:co,
     invoice:document.getElementById('f-inv').value||('INV-'+Date.now()),
@@ -715,37 +1072,38 @@ async function savePayment(){
     fileName:pendingFile?pendingFile.name:(editId?payments.find(x=>x.id===editId)?.fileName||'':'')
   };
   const ok=await dbSave(p,editId);
-  if(ok){closeModal();toast(editId?'Payment updated!':'Payment added!');await loadPayments();}
-  else toast('Error saving — please try again');
+  if(ok){closeModal();toast(editId?t('paymentUpdated'):t('paymentAdded'));await loadPayments();}
+  else toast(t('saveError'));
 }
-
+ 
 async function delPayment(id){
-  if(!isAdmin){toast('Admin access required');return;}
-  if(!confirm('Delete this payment? This cannot be undone.'))return;
+  if(!isAdmin){toast(t('adminRequired'));return;}
+  if(!confirm(t('deleteConfirm')))return;
   const ok=await dbDelete(id);
-  if(ok){toast('Payment deleted');await loadPayments();}
-  else toast('Error deleting');
+  if(ok){toast(t('paymentDeleted'));await loadPayments();}
+  else toast(t('deleteError'));
 }
-
+ 
 function toggleAdmin(){
   if(isAdmin){isAdmin=false;updateAdminUI();renderCurrent();return;}
-  const pw=prompt('Enter admin password:');
+  const pw=prompt(t('enterPw'));
   if(pw===null)return;
-  if(pw===ADMIN_PASSWORD){isAdmin=true;updateAdminUI();renderCurrent();toast('Admin mode enabled');}
-  else alert('Incorrect password.');
+  if(pw===ADMIN_PASSWORD){isAdmin=true;updateAdminUI();renderCurrent();toast(t('adminEnabled'));}
+  else alert(t('wrongPw'));
 }
-
+ 
 function updateAdminUI(){
   document.getElementById('admin-status').textContent=isAdmin?'Admin mode — edit & delete enabled':'Admin locked — edit & delete disabled';
   document.getElementById('admin-status').className='admin-status'+(isAdmin?' on':'');
   document.getElementById('lock-icon').textContent=isAdmin?'🔓':'🔒';
-  document.getElementById('admin-btn').textContent=isAdmin?'Lock':'Unlock';
+  document.getElementById('admin-btn').textContent=isAdmin?t('lock'):t('unlock');
+  document.getElementById('sup-mgmt-btn').textContent=t('manageSuppliers');
   document.getElementById('sup-mgmt-btn').style.display=isAdmin?'inline-block':'none';
 }
-
+ 
 function toggleExport(){document.getElementById('export-dropdown').classList.toggle('open');}
 document.addEventListener('click',e=>{if(!document.getElementById('export-menu').contains(e.target))document.getElementById('export-dropdown').classList.remove('open');});
-
+ 
 function doExport(mode){
   document.getElementById('export-dropdown').classList.remove('open');
   let list;
@@ -763,11 +1121,15 @@ function doExport(mode){
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download='payments_'+mode+'.csv';a.click();
 }
-
+ 
 function openImport(){
   importedRows=[];
   document.getElementById('imp-file').value='';
-  document.getElementById('imp-drop-label').textContent='Click to upload Excel file (.xlsx)';
+  document.getElementById('imp-title').textContent=t('importTitle');
+  document.getElementById('imp-desc').textContent=t('importDesc');
+  document.getElementById('imp-confirm').textContent=t('importBtn');
+  document.getElementById('imp-close-btn').textContent=t('close');
+  document.getElementById('imp-drop-label').textContent=t('importClick');
   document.getElementById('imp-status').textContent='';
   document.getElementById('imp-preview').innerHTML='';
   document.getElementById('imp-confirm').style.display='none';
@@ -775,11 +1137,11 @@ function openImport(){
 }
 function closeImport(){document.getElementById('import-overlay').classList.remove('open');}
 function closeImportBg(e){if(e.target.id==='import-overlay')closeImport();}
-
+ 
 async function handleImport(input){
   const file=input.files[0];if(!file)return;
   document.getElementById('imp-drop-label').textContent=file.name;
-  document.getElementById('imp-status').textContent='Reading Excel file...';
+  document.getElementById('imp-status').textContent=t('importReading');
   document.getElementById('imp-confirm').style.display='none';
   document.getElementById('imp-preview').innerHTML='';
   try{
@@ -790,14 +1152,14 @@ async function handleImport(input){
       const csv=XLSX.utils.sheet_to_csv(wb.Sheets[n]);
       if(csv.trim())text+='\n\n=== Sheet: '+n+' ===\n'+csv;
     });
-    document.getElementById('imp-status').textContent='AI is reading the data...';
+    document.getElementById('imp-status').textContent=t('importAI');
     const prompt='Extract ALL payment rows from this Portuguese company Excel CSV. Companies: Vonston, Golden Mile, Época, BAIES, Winner Direction, Manjerico Palaciano.\nReturn ONLY a JSON array, no markdown:\n[{"company":"Vonston","supplier":"EDP","amount":196.23,"invoice":"FT2026","issue_date":"2026-03-03","due_date":"2026-03-24","status":"pending"}]\nRules: Not paid or blank=pending, Paid=paid. Portuguese months to YYYY-MM-DD. Skip empty/total/header rows.\nData:\n'+text.substring(0,12000);
     const data=await callClaude({model:MODEL,max_tokens:4000,messages:[{role:'user',content:prompt}]});
     const txt=data.content[0].text;
     const match=txt.match(/\[[\s\S]*\]/);
     if(!match)throw new Error('No JSON array found');
     importedRows=JSON.parse(match[0]);
-    document.getElementById('imp-status').textContent='Found '+importedRows.length+' payments — review and confirm:';
+    document.getElementById('imp-status').textContent=t('importFound')+' '+importedRows.length+' '+t('importReview');
     document.getElementById('imp-preview').innerHTML=importedRows.map(p=>
       '<div class="import-row"><span class="rbadge">'+p.company+'</span>'
       +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;">'+p.supplier+'</span>'
@@ -806,13 +1168,13 @@ async function handleImport(input){
     document.getElementById('imp-confirm').style.display='inline-block';
   }catch(err){
     console.error(err);
-    document.getElementById('imp-status').textContent='Could not read file. Please try again.';
+    document.getElementById('imp-status').textContent=t('importFail');
   }
 }
-
+ 
 async function confirmImport(){
   const btn=document.getElementById('imp-confirm');
-  btn.textContent='Importing...';btn.disabled=true;
+  btn.textContent=t('importing');btn.disabled=true;
   let ok=0,fail=0;
   for(const p of importedRows){
     const row={
@@ -825,19 +1187,23 @@ async function confirmImport(){
     if(error)fail++;else ok++;
   }
   closeImport();
-  toast('Imported '+ok+' payments!'+(fail>0?' ('+fail+' failed)':''));
+  toast(t('importDone')+' '+ok+' '+t('payments')+'!'+(fail>0?' ('+fail+' failed)':''));
   await loadPayments();
 }
-
+ 
 // ── Supplier Management ──────────────────────────────────────
 function openSupMgmt(){
   document.getElementById('sup-search').value='';
+  document.getElementById('sup-search').placeholder=t('searchSupPh');
+  document.getElementById('sup-title').textContent=t('manageTitle');
+  document.getElementById('sup-desc').textContent=t('manageDesc');
+  document.getElementById('sup-close-btn').textContent=t('close');
   renderSupList();
   document.getElementById('sup-overlay').classList.add('open');
 }
 function closeSupMgmt(){document.getElementById('sup-overlay').classList.remove('open');}
 function closeSupBg(e){if(e.target.id==='sup-overlay')closeSupMgmt();}
-
+ 
 function renderSupList(){
   const q=(document.getElementById('sup-search').value||'').toLowerCase();
   const map={};
@@ -864,10 +1230,10 @@ function renderSupList(){
     inp.addEventListener('keydown',function(e){if(e.key==='Enter')renameSup(this);});
     const cnt=document.createElement('span');
     cnt.className='sup-count';
-    cnt.textContent=count+' payment'+(count!==1?'s':'');
+    cnt.textContent=count+' '+(count!==1?t('payments'):t('payment'));
     const btn=document.createElement('button');
     btn.className='btn sm';
-    btn.textContent='Save';
+    btn.textContent=t('save');
     btn.addEventListener('click',function(){renameSup(inp);});
     row.appendChild(inp);
     row.appendChild(cnt);
@@ -875,19 +1241,63 @@ function renderSupList(){
     container.appendChild(row);
   });
 }
-
+ 
 async function renameSup(input){
   const oldName=input.dataset.original;
   const newName=input.value.trim();
-  if(!newName||newName===oldName){toast('No change made');return;}
-  if(!confirm('Rename "'+oldName+'" to "'+newName+'" across all payments?'))return;
+  if(!newName||newName===oldName){toast(t('noChange'));return;}
+  if(!confirm(t('renameConfirm').replace('{0}',oldName).replace('{1}',newName)))return;
   const{error}=await db.from('payments').update({supplier:newName}).eq('supplier',oldName);
-  if(error){toast('Error renaming supplier');return;}
-  toast('✅ Renamed successfully!');
+  if(error){toast(t('renameError'));return;}
+  toast(t('renameSuccess'));
   await loadPayments();
   renderSupList();
 }
-
+ 
+// ── Pull to Refresh (mobile) ──
+(function(){
+  if(window.innerWidth>768)return;
+  let startY=0,currentY=0,pulling=false,refreshing=false;
+  const indicator=document.getElementById('ptr');
+  const text=document.getElementById('ptr-text');
+  const THRESHOLD=70;
+  document.addEventListener('touchstart',e=>{
+    if(refreshing||window.scrollY>0)return;
+    startY=e.touches[0].clientY;
+    pulling=true;
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!pulling||refreshing)return;
+    currentY=e.touches[0].clientY;
+    const diff=currentY-startY;
+    if(diff>0&&window.scrollY===0){
+      const h=Math.min(diff*0.5,80);
+      indicator.style.height=h+'px';
+      text.textContent=diff>THRESHOLD?t('releaseRefresh'):t('pullRefresh');
+    }
+  },{passive:true});
+  document.addEventListener('touchend',async()=>{
+    if(!pulling||refreshing){pulling=false;return;}
+    pulling=false;
+    const diff=currentY-startY;
+    if(diff>THRESHOLD){
+      refreshing=true;
+      indicator.classList.add('refreshing');
+      text.innerHTML='<span class="ptr-spin"></span> '+t('refreshing');
+      try{await loadPayments();}catch(e){}
+      setTimeout(()=>{
+        indicator.classList.remove('refreshing');
+        indicator.style.height='0px';
+        text.textContent=t('pullRefresh');
+        refreshing=false;
+      },400);
+    }else{
+      indicator.style.height='0px';
+    }
+  },{passive:true});
+})();
+ 
+applyLang();
 loadPayments();
 </script>
 </body>
