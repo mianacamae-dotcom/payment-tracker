@@ -1,9 +1,12 @@
+
+Copy
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Payment Tracker</title>
+<title>FS Payment Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -192,7 +195,7 @@ tr:hover td{background:#f9f9f7;}
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="btn" id="back-btn" style="display:none;" onclick="goBack()">← Back</button>
-      <span class="title" id="page-title">Payment Tracker</span>
+      <span class="title" id="page-title">FS Payment Tracker</span>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button class="btn" onclick="openImport()">Import Excel</button>
@@ -314,7 +317,7 @@ const LANG_KEY='pt_lang';
 let lang=localStorage.getItem(LANG_KEY)||'en';
 const T={
   en:{
-    title:'Payment Tracker',
+    title:'FS Payment Tracker',
     importExcel:'Import Excel',
     export:'Export ↓',
     exportCurrent:'Export current view',
@@ -421,7 +424,7 @@ const T={
     loadError:'Error loading'
   },
   fr:{
-    title:'Suivi des Paiements',
+    title:'FS Suivi des Paiements',
     importExcel:'Importer Excel',
     export:'Exporter ↓',
     exportCurrent:'Exporter la vue actuelle',
@@ -698,12 +701,12 @@ function renderNav(){
     }).join('');
 }
  
-function setCompany(c){activeCompany=c;drillKey=null;document.getElementById('back-btn').style.display='none';document.getElementById('page-title').textContent='Payment Tracker';renderCurrent();}
+function setCompany(c){activeCompany=c;drillKey=null;document.getElementById('back-btn').style.display='none';document.getElementById('page-title').textContent=t('title');renderCurrent();}
  
 function setView(v){
   activeView=v;drillKey=null;
   document.getElementById('back-btn').style.display='none';
-  document.getElementById('page-title').textContent='Payment Tracker';
+  document.getElementById('page-title').textContent=t('title');
   document.querySelectorAll('.view-tab').forEach((b,i)=>b.classList.toggle('active',['weeks','months','years','suppliers','all'][i]===v));
   document.getElementById('supplier-sort-bar').style.display=v==='suppliers'?'block':'none';
   renderCurrent();
@@ -952,7 +955,7 @@ function drillMonth(k){
   if(g){document.getElementById('back-btn').style.display='inline-block';document.getElementById('page-title').textContent=fmtMK(k);renderMetrics(g.payments);}
   document.getElementById('main').innerHTML='';renderDrill(src());
 }
-function goBack(){drillKey=null;document.getElementById('back-btn').style.display='none';document.getElementById('page-title').textContent='Payment Tracker';renderCurrent();}
+function goBack(){drillKey=null;document.getElementById('back-btn').style.display='none';document.getElementById('page-title').textContent=t('title');renderCurrent();}
  
 function showStatusMenu(e,id){
   e.stopPropagation();
