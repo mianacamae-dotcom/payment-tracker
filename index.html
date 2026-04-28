@@ -355,6 +355,20 @@ function getWk(d){
 }
 function getMK(s){let d=parseD(s);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 function fmtMK(k){let[y,m]=k.split('-');return MONTHS[parseInt(m)-1]+' '+y;}
+function normalizeDate(s){
+  if(!s)return '';
+  s=String(s).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  if(/^\d{4}-\d{2}-\d{2}T/.test(s))return s.substring(0,10);
+  // Portuguese / European DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY
+  const m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+  if(m){
+    const day=m[1].padStart(2,'0');
+    const mon=m[2].padStart(2,'0');
+    return m[3]+'-'+mon+'-'+day;
+  }
+  return '';
+}
  
 const LANG_KEY='pt_lang';
 let lang=localStorage.getItem(LANG_KEY)||'en';
@@ -1121,8 +1135,8 @@ async function handleInvoice(input){
       if(inv.supplier&&document.getElementById('f-sup'))document.getElementById('f-sup').value=inv.supplier;
       if(inv.invoice_number&&document.getElementById('f-inv'))document.getElementById('f-inv').value=inv.invoice_number;
       if(inv.amount&&document.getElementById('f-amt'))document.getElementById('f-amt').value=inv.amount;
-      if(inv.issue_date&&document.getElementById('f-iss'))document.getElementById('f-iss').value=inv.issue_date;
-      if(inv.due_date&&document.getElementById('f-due')){document.getElementById('f-due').value=inv.due_date;updateHint();}
+      if(inv.issue_date){const nd=normalizeDate(inv.issue_date);if(nd&&document.getElementById('f-iss'))document.getElementById('f-iss').value=nd;}
+      if(inv.due_date){const nd=normalizeDate(inv.due_date);if(nd&&document.getElementById('f-due')){document.getElementById('f-due').value=nd;updateHint();}}
       if(inv.company&&document.getElementById('f-co')){
         const sel=document.getElementById('f-co');
         if(Array.from(sel.options).some(o=>o.value===inv.company))sel.value=inv.company;
@@ -1212,7 +1226,7 @@ function renderBulkReviewUI(){
       +'<option value="">— '+t('company')+' —</option>'
       +COMPANIES.map(c=>'<option value="'+escAttr(c)+'"'+(d.company===c?' selected':'')+'>'+c+'</option>').join('')
       +'</select></div>'
-      +'<div class="field" style="margin-bottom:8px;"><label>'+t('dueDate')+'</label><input type="date" id="b-due-'+idx+'" value="'+escAttr(d.due_date)+'"></div>'
+      +'<div class="field" style="margin-bottom:8px;"><label>'+t('dueDate')+'</label><input type="date" id="b-due-'+idx+'" value="'+escAttr(normalizeDate(d.due_date)||ds(today))+'"></div>'
       +'</div>'
       +'<div class="field" style="margin-bottom:0;"><label>'+t('invoiceNumber')+'</label><input type="text" id="b-inv-'+idx+'" value="'+escAttr(d.invoice_number)+'"></div>'
       +'</div>';
@@ -1229,20 +1243,20 @@ async function saveBulkInvoices(){
   const btn=document.getElementById('b-save-all');
   btn.disabled=true;
   btn.textContent=t('importing');
-  let saved=0,failed=0,skipped=0;
+  let saved=0,dbFailed=0,validationFailed=0,skipped=0;
   for(let idx=0;idx<successful.length;idx++){
     const chk=document.getElementById('b-chk-'+idx);
     if(!chk||!chk.checked){skipped++;continue;}
     const r=successful[idx];
     const company=document.getElementById('b-co-'+idx).value;
     const due=document.getElementById('b-due-'+idx).value;
-    if(!company||!due){failed++;continue;}
+    if(!company||!due){validationFailed++;continue;}
     const payment={
       company:company,
       invoice:document.getElementById('b-inv-'+idx).value||('INV-'+Date.now()+'-'+idx),
       supplier:document.getElementById('b-sup-'+idx).value||'—',
       amount:parseFloat(document.getElementById('b-amt-'+idx).value)||0,
-      issueDate:r.data.issue_date||'',
+      issueDate:normalizeDate(r.data.issue_date),
       due:due,
       status:'pending',
       notes:r.data.notes||'',
@@ -1250,16 +1264,29 @@ async function saveBulkInvoices(){
       invoiceLink:''
     };
     const ok=await dbSave(payment);
-    if(ok)saved++;else failed++;
+    if(ok)saved++;else dbFailed++;
   }
-  if(saved===0&&skipped===successful.length){
+  if(saved===0){
     btn.disabled=false;
     btn.textContent=t('bulkSaveAll');
-    toast(t('bulkNoneSelected'));
-    return;
+    if(validationFailed>0){
+      toast(validationFailed+' invoice(s) need a Company and Due Date');
+      return;
+    }
+    if(skipped===successful.length){
+      toast(t('bulkNoneSelected'));
+      return;
+    }
+    if(dbFailed>0){
+      toast('Save failed — check browser console');
+      return;
+    }
   }
   closeModal();
-  toast(t('bulkSaveDone').replace('{0}',saved)+(failed>0?' '+t('bulkSaveFailSuffix').replace('{0}',failed):''));
+  let msg=t('bulkSaveDone').replace('{0}',saved);
+  if(dbFailed>0)msg+=' '+t('bulkSaveFailSuffix').replace('{0}',dbFailed);
+  if(validationFailed>0)msg+=' · '+validationFailed+' missing fields';
+  toast(msg);
   await loadPayments();
 }
  
