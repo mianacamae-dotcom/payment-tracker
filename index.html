@@ -419,7 +419,7 @@ const T={
     addPaymentTitle:'Add payment',
     editPaymentTitle:'Edit payment',
     aiUpload:'🤖 Upload invoice — AI will auto-fill the fields',
-    aiClick:'Click to upload invoice (PDF or image)',
+    aiClick:'Click to upload invoice(s) (PDF or image)',
     aiReading:'Reading invoice with AI...',
     aiSuccess:'✅ Invoice read successfully!',
     aiFail:'Could not read automatically — please fill manually.',
@@ -464,6 +464,14 @@ const T={
     pullRefresh:'↓ Pull to refresh',
     releaseRefresh:'↑ Release to refresh',
     refreshing:'Refreshing...',
+    bulkReadingTitle:'Reading invoices...',
+    bulkReviewTitle:'Review and save',
+    bulkReviewIntro:'AI extracted these invoices. Edit anything that looks wrong, uncheck any you want to skip, then save.',
+    bulkFailedSuffix:'could not be read',
+    bulkSaveAll:'Save all',
+    bulkSaveDone:'{0} payments saved',
+    bulkSaveFailSuffix:'({0} failed)',
+    bulkNoneSelected:'No invoices selected',
     loadError:'Error loading'
   },
   fr:{
@@ -526,7 +534,7 @@ const T={
     addPaymentTitle:'Ajouter un paiement',
     editPaymentTitle:'Modifier le paiement',
     aiUpload:'🤖 Téléverser facture — IA remplira automatiquement',
-    aiClick:'Cliquer pour téléverser facture (PDF ou image)',
+    aiClick:'Cliquer pour téléverser facture(s) (PDF ou image)',
     aiReading:'Lecture de la facture par IA...',
     aiSuccess:'✅ Facture lue avec succès !',
     aiFail:'Impossible de lire — veuillez remplir manuellement.',
@@ -571,6 +579,14 @@ const T={
     pullRefresh:'↓ Tirer pour rafraîchir',
     releaseRefresh:'↑ Relâcher pour rafraîchir',
     refreshing:'Rafraîchissement...',
+    bulkReadingTitle:'Lecture des factures...',
+    bulkReviewTitle:'Vérifier et enregistrer',
+    bulkReviewIntro:'L\'IA a extrait ces factures. Modifiez ce qui n\'est pas correct, décochez les factures à ignorer, puis enregistrez.',
+    bulkFailedSuffix:'n\'ont pas pu être lues',
+    bulkSaveAll:'Tout enregistrer',
+    bulkSaveDone:'{0} paiements enregistrés',
+    bulkSaveFailSuffix:'({0} échouées)',
+    bulkNoneSelected:'Aucune facture sélectionnée',
     loadError:'Erreur de chargement'
   }
 };
@@ -1023,7 +1039,7 @@ function openModal(id=null){
     '<h3>'+(id?t('editPaymentTitle'):t('addPaymentTitle'))+'</h3>'
     +'<div class="ai-box"><p>'+t('aiUpload')+'</p>'
     +'<div class="upload-area" onclick="document.getElementById(\'inv-file\').click()">'
-    +'<input type="file" id="inv-file" accept=".pdf,.jpg,.jpeg,.png" onchange="handleInvoice(this)">'
+    +'<input type="file" id="inv-file" accept=".pdf,.jpg,.jpeg,.png"'+(id?'':' multiple')+' onchange="handleInvoice(this)">'
     +t('aiClick')+'</div>'
     +'<div class="ai-status" id="ai-status"></div></div>'
     +'<div class="field"><label>'+t('company')+'</label><select id="f-co">'+COMPANIES.map(c=>'<option'+(p&&p.company===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'
@@ -1061,44 +1077,190 @@ function updateHint(){
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');editId=null;pendingFile=null;}
 function closeModalBg(e){if(e.target.id==='modal-overlay')closeModal();}
  
+async function extractInvoiceFromFile(file){
+  const b64=await new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result.split(',')[1]);
+    r.onerror=()=>rej(new Error('read error'));
+    r.readAsDataURL(file);
+  });
+  const isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+  const mediaType=isPDF?'application/pdf':(file.type||'image/jpeg');
+  const prompt='Extract from this invoice. Return ONLY valid JSON, nothing else: '
+    +'{"supplier":"","invoice_number":"","amount":0,"issue_date":"YYYY-MM-DD","due_date":"YYYY-MM-DD","company":"","notes":""}. '
+    +'company must be EXACTLY one of [Vonston, Golden Mile, Época, BAIES, Winner Direction, Manjerico Palaciano] matching the bill-to/addressee on the invoice, or empty string if not visible. '
+    +'amount is a number in EUR (no currency symbol). notes is payment terms or other relevant info, empty string if none. '
+    +'Use empty string or 0 if a field is not found. Dates in YYYY-MM-DD format.';
+  const body={
+    model:MODEL,max_tokens:800,
+    messages:[{role:'user',content:[
+      isPDF
+        ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+        :{type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
+      {type:'text',text:prompt}
+    ]}]
+  };
+  const data=await callClaude(body);
+  const text=data.content[0].text;
+  const match=text.match(/\{[\s\S]*\}/);
+  if(!match)throw new Error('no json');
+  return JSON.parse(match[0]);
+}
+ 
 async function handleInvoice(input){
-  const file=input.files[0];if(!file)return;
-  pendingFile={file,name:file.name};
-  const st=document.getElementById('ai-status');
-  st.textContent=t('aiReading');
-  try{
-    const b64=await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=e=>res(e.target.result.split(',')[1]);
-      r.onerror=()=>rej(new Error('read error'));
-      r.readAsDataURL(file);
-    });
-    const isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
-    const mediaType=isPDF?'application/pdf':(file.type||'image/jpeg');
-    const body={
-      model:MODEL,max_tokens:500,
-      messages:[{role:'user',content:[
-        isPDF
-          ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-          :{type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
-        {type:'text',text:'Extract from this invoice. Return ONLY valid JSON, nothing else: {"supplier":"","invoice_number":"","amount":0,"issue_date":"YYYY-MM-DD","due_date":"YYYY-MM-DD"}. Use empty string or 0 if field not found. Dates in YYYY-MM-DD format.'}
-      ]}]
-    };
-    const data=await callClaude(body);
-    const text=data.content[0].text;
-    const match=text.match(/\{[\s\S]*\}/);
-    if(!match)throw new Error('no json');
-    const inv=JSON.parse(match[0]);
-    if(inv.supplier&&document.getElementById('f-sup'))document.getElementById('f-sup').value=inv.supplier;
-    if(inv.invoice_number&&document.getElementById('f-inv'))document.getElementById('f-inv').value=inv.invoice_number;
-    if(inv.amount&&document.getElementById('f-amt'))document.getElementById('f-amt').value=inv.amount;
-    if(inv.issue_date&&document.getElementById('f-iss'))document.getElementById('f-iss').value=inv.issue_date;
-    if(inv.due_date&&document.getElementById('f-due')){document.getElementById('f-due').value=inv.due_date;updateHint();}
-    st.textContent=t('aiSuccess');
-  }catch(err){
-    console.error(err);
-    st.textContent=t('aiFail');
+  const files=Array.from(input.files);
+  if(!files.length)return;
+  if(files.length===1){
+    // Single invoice: fill the existing form (unchanged behavior)
+    const file=files[0];
+    pendingFile={file,name:file.name};
+    const st=document.getElementById('ai-status');
+    st.textContent=t('aiReading');
+    try{
+      const inv=await extractInvoiceFromFile(file);
+      if(inv.supplier&&document.getElementById('f-sup'))document.getElementById('f-sup').value=inv.supplier;
+      if(inv.invoice_number&&document.getElementById('f-inv'))document.getElementById('f-inv').value=inv.invoice_number;
+      if(inv.amount&&document.getElementById('f-amt'))document.getElementById('f-amt').value=inv.amount;
+      if(inv.issue_date&&document.getElementById('f-iss'))document.getElementById('f-iss').value=inv.issue_date;
+      if(inv.due_date&&document.getElementById('f-due')){document.getElementById('f-due').value=inv.due_date;updateHint();}
+      if(inv.company&&document.getElementById('f-co')){
+        const sel=document.getElementById('f-co');
+        if(Array.from(sel.options).some(o=>o.value===inv.company))sel.value=inv.company;
+      }
+      st.textContent=t('aiSuccess');
+    }catch(err){
+      console.error(err);
+      st.textContent=t('aiFail');
+    }
+    return;
   }
+  // Multiple invoices: switch into review mode
+  await processMultipleInvoices(files);
+}
+ 
+let bulkInvoices=[];
+ 
+async function processMultipleInvoices(files){
+  bulkInvoices=files.map(f=>({file:f,name:f.name,status:'queued',data:null,error:null}));
+  renderBulkReadingUI();
+  const concurrency=3;
+  let cursor=0;
+  async function worker(){
+    while(cursor<bulkInvoices.length){
+      const idx=cursor++;
+      const r=bulkInvoices[idx];
+      r.status='reading';
+      renderBulkReadingUI();
+      try{
+        r.data=await extractInvoiceFromFile(r.file);
+        r.status='done';
+      }catch(e){
+        r.status='failed';
+        r.error=(e.message||String(e)).substring(0,200);
+      }
+      renderBulkReadingUI();
+    }
+  }
+  await Promise.all(Array.from({length:concurrency},()=>worker()));
+  renderBulkReviewUI();
+}
+ 
+function renderBulkReadingUI(){
+  const total=bulkInvoices.length;
+  const done=bulkInvoices.filter(r=>r.status==='done'||r.status==='failed').length;
+  const rows=bulkInvoices.map(r=>{
+    let icon='⋯',color='var(--ink-mute)';
+    if(r.status==='reading'){icon='⏳';color='var(--warn)';}
+    else if(r.status==='done'){icon='✓';color='var(--good)';}
+    else if(r.status==='failed'){icon='✗';color='var(--bad)';}
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;">'
+      +'<span style="color:'+color+';font-weight:600;width:14px;">'+icon+'</span>'
+      +'<span style="flex:1;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+r.name+'</span>'
+      +'</div>';
+  }).join('');
+  document.getElementById('modal-content').innerHTML=
+    '<h3>'+t('bulkReadingTitle')+' ('+done+'/'+total+')</h3>'
+    +'<div style="margin-bottom:16px;">'+rows+'</div>';
+}
+ 
+function escAttr(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+ 
+function renderBulkReviewUI(){
+  const successful=bulkInvoices.filter(r=>r.status==='done');
+  const failed=bulkInvoices.filter(r=>r.status==='failed');
+  let html='<h3>'+t('bulkReviewTitle')+' ('+successful.length+')</h3>';
+  html+='<p style="font-size:12px;color:var(--ink-soft);margin-bottom:1rem;line-height:1.5;">'+t('bulkReviewIntro')+'</p>';
+  if(failed.length>0){
+    html+='<div style="background:var(--bad-soft);border:1px solid #fecaca;border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--bad);">'
+      +'<strong>'+failed.length+'</strong> '+t('bulkFailedSuffix')+': '
+      +failed.map(r=>escAttr(r.name)).join(', ')
+      +'</div>';
+  }
+  successful.forEach((r,idx)=>{
+    const d=r.data||{};
+    html+='<div style="border:1px solid var(--line);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">'
+      +'<input type="checkbox" id="b-chk-'+idx+'" checked style="width:16px;height:16px;cursor:pointer;">'
+      +'<label for="b-chk-'+idx+'" style="flex:1;font-size:11px;color:var(--ink-mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">'+escAttr(r.name)+'</label>'
+      +'</div>'
+      +'<div class="field-row">'
+      +'<div class="field" style="margin-bottom:8px;"><label>'+t('supplierField')+'</label><input type="text" id="b-sup-'+idx+'" value="'+escAttr(d.supplier)+'"></div>'
+      +'<div class="field" style="margin-bottom:8px;"><label>'+t('amountField')+'</label><input type="number" step="0.01" id="b-amt-'+idx+'" value="'+(parseFloat(d.amount)||0)+'"></div>'
+      +'</div>'
+      +'<div class="field-row">'
+      +'<div class="field" style="margin-bottom:8px;"><label>'+t('company')+'</label><select id="b-co-'+idx+'">'
+      +'<option value="">— '+t('company')+' —</option>'
+      +COMPANIES.map(c=>'<option value="'+escAttr(c)+'"'+(d.company===c?' selected':'')+'>'+c+'</option>').join('')
+      +'</select></div>'
+      +'<div class="field" style="margin-bottom:8px;"><label>'+t('dueDate')+'</label><input type="date" id="b-due-'+idx+'" value="'+escAttr(d.due_date)+'"></div>'
+      +'</div>'
+      +'<div class="field" style="margin-bottom:0;"><label>'+t('invoiceNumber')+'</label><input type="text" id="b-inv-'+idx+'" value="'+escAttr(d.invoice_number)+'"></div>'
+      +'</div>';
+  });
+  html+='<div class="modal-actions">'
+    +'<button class="btn" onclick="closeModal()">'+t('cancel')+'</button>'
+    +'<button class="btn primary" id="b-save-all" onclick="saveBulkInvoices()">'+t('bulkSaveAll')+'</button>'
+    +'</div>';
+  document.getElementById('modal-content').innerHTML=html;
+}
+ 
+async function saveBulkInvoices(){
+  const successful=bulkInvoices.filter(r=>r.status==='done');
+  const btn=document.getElementById('b-save-all');
+  btn.disabled=true;
+  btn.textContent=t('importing');
+  let saved=0,failed=0,skipped=0;
+  for(let idx=0;idx<successful.length;idx++){
+    const chk=document.getElementById('b-chk-'+idx);
+    if(!chk||!chk.checked){skipped++;continue;}
+    const r=successful[idx];
+    const company=document.getElementById('b-co-'+idx).value;
+    const due=document.getElementById('b-due-'+idx).value;
+    if(!company||!due){failed++;continue;}
+    const payment={
+      company:company,
+      invoice:document.getElementById('b-inv-'+idx).value||('INV-'+Date.now()+'-'+idx),
+      supplier:document.getElementById('b-sup-'+idx).value||'—',
+      amount:parseFloat(document.getElementById('b-amt-'+idx).value)||0,
+      issueDate:r.data.issue_date||'',
+      due:due,
+      status:'pending',
+      notes:r.data.notes||'',
+      fileName:r.name,
+      invoiceLink:''
+    };
+    const ok=await dbSave(payment);
+    if(ok)saved++;else failed++;
+  }
+  if(saved===0&&skipped===successful.length){
+    btn.disabled=false;
+    btn.textContent=t('bulkSaveAll');
+    toast(t('bulkNoneSelected'));
+    return;
+  }
+  closeModal();
+  toast(t('bulkSaveDone').replace('{0}',saved)+(failed>0?' '+t('bulkSaveFailSuffix').replace('{0}',failed):''));
+  await loadPayments();
 }
  
 async function savePayment(){
