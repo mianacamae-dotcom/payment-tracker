@@ -1281,19 +1281,50 @@ function renderBulkReviewUI(){
   document.getElementById('modal-content').innerHTML=html;
 }
  
+async function uploadInvoiceToDrive(file,company){
+  const b64=await new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result.split(',')[1]);
+    r.onerror=()=>rej(new Error('read error'));
+    r.readAsDataURL(file);
+  });
+  const resp=await fetch('/api/drive-upload',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      company:company,
+      fileName:file.name,
+      mimeType:file.type||'application/octet-stream',
+      fileBase64:b64
+    })
+  });
+  const data=await resp.json();
+  if(!resp.ok)throw new Error(data.error||'upload failed');
+  return data.webViewLink||DRIVE_FOLDERS[company]||'';
+}
+ 
 async function saveBulkInvoices(){
-  const successful=bulkInvoices.filter(r=>r.status==='done');
-  const btn=document.getElementById('b-save-all');
-  btn.disabled=true;
-  btn.textContent=t('importing');
-  let saved=0,dbFailed=0,validationFailed=0,skipped=0;
-  for(let idx=0;idx<successful.length;idx++){
+  const status=document.getElementById('bi-status');
+  const confirmBtn=document.getElementById('b-save-all');
+  if(confirmBtn){confirmBtn.disabled=true;confirmBtn.textContent=t('importing');}
+  const ready=bulkInvoices.filter(r=>r.status==='done'&&r.data);
+  let saved=0,dbFailed=0,validationFailed=0,skipped=0,uploadFailed=0;
+  for(let idx=0;idx<ready.length;idx++){
     const chk=document.getElementById('b-chk-'+idx);
     if(!chk||!chk.checked){skipped++;continue;}
-    const r=successful[idx];
+    const r=ready[idx];
     const company=document.getElementById('b-co-'+idx).value;
     const due=document.getElementById('b-due-'+idx).value;
     if(!company||!due){validationFailed++;continue;}
+    // Upload the original file to Drive first
+    let driveLink=DRIVE_FOLDERS[company]||'';
+    try{
+      driveLink=await uploadInvoiceToDrive(r.file,company);
+    }catch(e){
+      console.error('Drive upload failed for',r.name,e);
+      uploadFailed++;
+      // Continue anyway — payment still saves with folder fallback link
+    }
     const payment={
       company:company,
       invoice:document.getElementById('b-inv-'+idx).value||('INV-'+Date.now()+'-'+idx),
@@ -1304,30 +1335,22 @@ async function saveBulkInvoices(){
       status:'pending',
       notes:r.data.notes||'',
       fileName:r.name,
-      invoiceLink:DRIVE_FOLDERS[company]||''
+      invoiceLink:driveLink
     };
     const ok=await dbSave(payment);
     if(ok)saved++;else dbFailed++;
+    if(status)status.textContent=(lang==='fr'?'Enregistré ':'Saved ')+saved+'/'+ready.length;
   }
   if(saved===0){
-    btn.disabled=false;
-    btn.textContent=t('bulkSaveAll');
-    if(validationFailed>0){
-      toast(validationFailed+' invoice(s) need a Company and Due Date');
-      return;
-    }
-    if(skipped===successful.length){
-      toast(t('bulkNoneSelected'));
-      return;
-    }
-    if(dbFailed>0){
-      toast('Save failed — check browser console');
-      return;
-    }
+    if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent=t('bulkSaveAll');}
+    if(validationFailed>0){toast(validationFailed+' invoice(s) need a Company and Due Date');return;}
+    if(skipped===ready.length){toast(t('bulkNoneSelected'));return;}
+    if(dbFailed>0){toast('Save failed — check browser console');return;}
   }
   closeModal();
   let msg=t('bulkSaveDone').replace('{0}',saved);
   if(dbFailed>0)msg+=' '+t('bulkSaveFailSuffix').replace('{0}',dbFailed);
+  if(uploadFailed>0)msg+=' · '+uploadFailed+' Drive upload(s) failed';
   if(validationFailed>0)msg+=' · '+validationFailed+' missing fields';
   toast(msg);
   await loadPayments();
