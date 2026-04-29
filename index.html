@@ -1,3 +1,6 @@
+
+Copy
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -331,6 +334,14 @@ const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 const ADMIN_PASSWORD='1304FS';
 const MODEL='claude-haiku-4-5-20251001';
 const COMPANIES=['Vonston','Golden Mile','Época','BAIES','Winner Direction','Manjerico Palaciano'];
+const DRIVE_FOLDERS={
+  'Vonston':'https://drive.google.com/drive/folders/1quWmH6G6BmRKb5wXGfLk96YQ9FxZht3-',
+  'Golden Mile':'https://drive.google.com/drive/folders/15dbqoaK1L-U8gceHoB2BdJe7iLmp-ej1',
+  'Época':'https://drive.google.com/drive/folders/1TOxIkWZy10lpt8BY5Dl1__VGHcAMyFeq',
+  'BAIES':'https://drive.google.com/drive/folders/1thzKoit0_GjLxRWKA88y-R5ar7Sr3lG2',
+  'Winner Direction':'https://drive.google.com/drive/folders/1cOr208o6-xgVTqennyyGWAjTPfBjl8OR',
+  'Manjerico Palaciano':'https://drive.google.com/drive/folders/1TKQHKOCsfhFBAX9356jRdB9G0uVRV0be'
+};
 const COLORS=['#7C3AED','#059669','#DC2626','#2563EB','#DB2777','#D97706'];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
  
@@ -368,6 +379,19 @@ function normalizeDate(s){
     return m[3]+'-'+mon+'-'+day;
   }
   return '';
+}
+ 
+function autofillDriveLink(){
+  const sel=document.getElementById('f-co');
+  const link=document.getElementById('f-link');
+  if(!sel||!link)return;
+  const co=sel.value;
+  const newUrl=DRIVE_FOLDERS[co];
+  if(!newUrl)return;
+  // Only overwrite if empty or if currently holding another known Drive folder URL
+  const cur=link.value.trim();
+  const isKnownFolder=Object.values(DRIVE_FOLDERS).some(u=>cur===u);
+  if(!cur||isKnownFolder)link.value=newUrl;
 }
  
 const LANG_KEY='pt_lang';
@@ -1056,7 +1080,7 @@ function openModal(id=null){
     +'<input type="file" id="inv-file" accept=".pdf,.jpg,.jpeg,.png"'+(id?'':' multiple')+' onchange="handleInvoice(this)">'
     +t('aiClick')+'</div>'
     +'<div class="ai-status" id="ai-status"></div></div>'
-    +'<div class="field"><label>'+t('company')+'</label><select id="f-co">'+COMPANIES.map(c=>'<option'+(p&&p.company===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'
+    +'<div class="field"><label>'+t('company')+'</label><select id="f-co" onchange="autofillDriveLink()">'+COMPANIES.map(c=>'<option'+(p&&p.company===c?' selected':'')+'>'+c+'</option>').join('')+'</select></div>'
     +'<div class="field-row">'
     +'<div class="field"><label>'+t('invoiceNumber')+'</label><input id="f-inv" value="'+(p?p.invoice:'')+'" placeholder="INV-0001"></div>'
     +'<div class="field"><label>'+t('amountField')+'</label><input id="f-amt" type="number" step="0.01" value="'+(p?p.amount:'')+'" placeholder="0.00"></div></div>'
@@ -1070,7 +1094,7 @@ function openModal(id=null){
     +'</div><input type="hidden" id="f-st" value="'+sv+'"></div>'
     +(p&&p.fileName?'<div style="font-size:12px;color:#2563eb;margin-bottom:8px;">📎 '+p.fileName+'</div>':'')
     +'<div class="field"><label>'+t('notes')+'</label><textarea id="f-notes">'+(p?p.notes||'':'')+'</textarea></div>'
-    +'<div class="field"><label>'+t('invoiceLink')+'</label><input id="f-link" type="url" value="'+(p&&p.invoiceLink?p.invoiceLink:'')+'" placeholder="https://drive.google.com/..."></div>'
+    +'<div class="field"><label>'+t('invoiceLink')+'</label><input id="f-link" type="url" value="'+(p&&p.invoiceLink?p.invoiceLink:(p?'':(DRIVE_FOLDERS[COMPANIES[0]]||'')))+'" placeholder="https://drive.google.com/..."></div>'
     +'<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="savePayment()">Save</button></div>';
   document.getElementById('modal-overlay').classList.add('open');
   updateHint();
@@ -1091,13 +1115,31 @@ function updateHint(){
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');editId=null;pendingFile=null;}
 function closeModalBg(e){if(e.target.id==='modal-overlay')closeModal();}
  
-async function extractInvoiceFromFile(file){
-  const b64=await new Promise((res,rej)=>{
-    const r=new FileReader();
-    r.onload=e=>res(e.target.result.split(',')[1]);
-    r.onerror=()=>rej(new Error('read error'));
-    r.readAsDataURL(file);
+async function uploadInvoiceFile(file){
+  // Sanitize filename + add timestamp prefix so duplicates don't collide
+  const ts=Date.now();
+  const rand=Math.random().toString(36).substring(2,8);
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path=ts+'_'+rand+'_'+safeName;
+  const url=SUPABASE_URL+'/storage/v1/object/invoices/'+encodeURIComponent(path);
+  const res=await fetch(url,{
+    method:'POST',
+    headers:{
+      'apikey':SUPABASE_KEY,
+      'Authorization':'Bearer '+SUPABASE_KEY,
+      'Content-Type':file.type||'application/octet-stream',
+      'x-upsert':'false'
+    },
+    body:file
   });
+  if(!res.ok){
+    const errText=await res.text();
+    throw new Error('Storage upload failed: '+res.status+' '+errText.substring(0,150));
+  }
+  return SUPABASE_URL+'/storage/v1/object/public/invoices/'+encodeURIComponent(path);
+}
+ 
+async function extractInvoiceFromFile(file){
   const isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
   const mediaType=isPDF?'application/pdf':(file.type||'image/jpeg');
   const prompt='Extract from this invoice. Return ONLY valid JSON, nothing else: '
@@ -1140,6 +1182,7 @@ async function handleInvoice(input){
       if(inv.company&&document.getElementById('f-co')){
         const sel=document.getElementById('f-co');
         if(Array.from(sel.options).some(o=>o.value===inv.company))sel.value=inv.company;
+        autofillDriveLink();
       }
       st.textContent=t('aiSuccess');
     }catch(err){
@@ -1261,7 +1304,7 @@ async function saveBulkInvoices(){
       status:'pending',
       notes:r.data.notes||'',
       fileName:r.name,
-      invoiceLink:''
+      invoiceLink:DRIVE_FOLDERS[company]||''
     };
     const ok=await dbSave(payment);
     if(ok)saved++;else dbFailed++;
