@@ -1140,6 +1140,12 @@ async function uploadInvoiceFile(file){
 }
  
 async function extractInvoiceFromFile(file){
+  const b64=await new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result.split(',')[1]);
+    r.onerror=()=>rej(new Error('read error'));
+    r.readAsDataURL(file);
+  });
   const isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
   const mediaType=isPDF?'application/pdf':(file.type||'image/jpeg');
   const prompt='Extract from this invoice. Return ONLY valid JSON, nothing else: '
